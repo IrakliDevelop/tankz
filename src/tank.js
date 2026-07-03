@@ -1,0 +1,148 @@
+import * as THREE from 'three';
+
+/**
+ * The player's tank.
+ *
+ * Scene-graph trick: the tank is a nested set of Groups.
+ *
+ *   root (position + hull heading on the map)
+ *    └─ hull mesh
+ *    └─ turret (rotates independently to aim at the mouse)
+ *        └─ barrel (offset forward so shells spawn from the muzzle)
+ *
+ * Because the barrel is a child of the turret which is a child of the root,
+ * Three.js multiplies all their transforms for us. To find where a shell
+ * should spawn and which way it flies, we just read the barrel's *world*
+ * position/direction — no manual trig required.
+ */
+export class Tank {
+  constructor(scene) {
+    this.root = new THREE.Group();
+    scene.add(this.root);
+
+    this.speed = 18;          // metres per second
+    this.turnSpeed = 2.4;     // radians per second (hull steering)
+    this.radius = 1.8;        // collision radius (treat tank as a circle)
+
+    this.#build();
+    this.reset();
+  }
+
+  #build() {
+    // --- Hull ---
+    const hullMat = new THREE.MeshStandardMaterial({ color: 0x4f7a3a, roughness: 0.7, metalness: 0.1 });
+    const hull = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1, 3.6), hullMat);
+    hull.position.y = 0.8;
+    hull.castShadow = true;
+    this.root.add(hull);
+
+    // Simple tracks on either side for a bit of tank silhouette.
+    const trackMat = new THREE.MeshStandardMaterial({ color: 0x22262b, roughness: 1 });
+    for (const side of [-1, 1]) {
+      const track = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 3.9), trackMat);
+      track.position.set(side * 1.5, 0.45, 0);
+      track.castShadow = true;
+      this.root.add(track);
+    }
+
+    // --- Turret (child so it can spin independently of the hull) ---
+    this.turret = new THREE.Group();
+    this.turret.position.y = 1.5;
+    this.root.add(this.turret);
+
+    const turretMat = new THREE.MeshStandardMaterial({ color: 0x5c8a44, roughness: 0.6 });
+    const dome = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.1, 0.7, 20), turretMat);
+    dome.castShadow = true;
+    this.turret.add(dome);
+
+    // --- Barrel: a child of the turret, pointing along +Z (forward) ---
+    const barrel = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.18, 0.22, 2.6, 12),
+      new THREE.MeshStandardMaterial({ color: 0x2f3a24 })
+    );
+    barrel.rotation.x = Math.PI / 2;   // cylinders are vertical by default; lay it flat
+    barrel.position.set(0, 0.1, 1.8);  // push it out the front of the turret
+    barrel.castShadow = true;
+    this.turret.add(barrel);
+
+    // An empty marker at the very tip of the barrel = the muzzle.
+    this.muzzle = new THREE.Object3D();
+    this.muzzle.position.set(0, 0, 3.1);
+    this.turret.add(this.muzzle);
+  }
+
+  reset() {
+    this.root.position.set(0, 0, 0);
+    this.root.rotation.y = 0;
+    this.turret.rotation.y = 0;
+  }
+
+  /**
+   * Advance the tank one frame.
+   * @param dt       seconds since last frame
+   * @param input    Input helper (keyboard state + aim point)
+   * @param obstacles array of { box } solids to slide against
+   */
+  update(dt, input, obstacles) {
+    // --- Steering: A/D rotate the hull in place ---
+    const turn = (input.isDown('KeyA') ? 1 : 0) - (input.isDown('KeyD') ? 1 : 0);
+    this.root.rotation.y += turn * this.turnSpeed * dt;
+
+    // --- Drive: W/S move along the hull's current facing ---
+    const drive = (input.isDown('KeyW') ? 1 : 0) - (input.isDown('KeyS') ? 1 : 0);
+    if (drive !== 0) {
+      // Forward vector for a Y-rotation of `a` is (sin a, 0, cos a).
+      const a = this.root.rotation.y;
+      const step = drive * this.speed * dt;
+      const nextX = this.root.position.x + Math.sin(a) * step;
+      const nextZ = this.root.position.z + Math.cos(a) * step;
+      this.#moveWithCollision(nextX, nextZ, obstacles);
+    }
+
+    // --- Aim: point the turret at the mouse's ground position ---
+    if (input.aimPoint) {
+      const dx = input.aimPoint.x - this.root.position.x;
+      const dz = input.aimPoint.z - this.root.position.z;
+      // World heading toward the aim point...
+      const worldAngle = Math.atan2(dx, dz);
+      // ...but the turret is a child of the root, so subtract the hull's angle.
+      this.turret.rotation.y = worldAngle - this.root.rotation.y;
+    }
+  }
+
+  /**
+   * Try to move to (nextX, nextZ). We test each axis separately so that
+   * sliding along a wall still works instead of sticking. Classic trick.
+   */
+  #moveWithCollision(nextX, nextZ, obstacles) {
+    const p = this.root.position;
+
+    if (!this.#collides(nextX, p.z, obstacles)) p.x = nextX;
+    if (!this.#collides(p.x, nextZ, obstacles)) p.z = nextZ;
+  }
+
+  /** Circle (tank) vs axis-aligned box test in the XZ plane. */
+  #collides(x, z, obstacles) {
+    for (const { box } of obstacles) {
+      // Closest point on the box to the tank centre, then distance check.
+      const cx = Math.max(box.min.x, Math.min(x, box.max.x));
+      const cz = Math.max(box.min.z, Math.min(z, box.max.z));
+      const ddx = x - cx, ddz = z - cz;
+      if (ddx * ddx + ddz * ddz < this.radius * this.radius) return true;
+    }
+    return false;
+  }
+
+  /** World-space spawn point + forward direction for a fired shell. */
+  getMuzzle() {
+    const position = new THREE.Vector3();
+    this.muzzle.getWorldPosition(position);
+
+    // Direction = (muzzle world pos) - (turret world pos), flattened to XZ.
+    const turretPos = new THREE.Vector3();
+    this.turret.getWorldPosition(turretPos);
+    const direction = position.clone().sub(turretPos).setY(0).normalize();
+
+    return { position, direction };
+  }
+}
