@@ -1,0 +1,12 @@
+# Normalize line endings: store everything as LF in the repo, regardless of
+# the OS a contributor checks out on. Stops the "LF will be replaced by CRLF"
+# warnings on Windows/WSL and keeps diffs clean.
+* text=auto eol=lf
+
+# Binary/asset types git shouldn't touch (add more as the project grows).
+*.png binary
+*.jpg binary
+*.glb binary
+*.gltf binary
+*.mp3 binary
+*.wav binary
