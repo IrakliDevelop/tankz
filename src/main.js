@@ -48,7 +48,7 @@ scene.add(sun);
 const world = new World(scene);
 const tank = new Tank(scene);
 const projectiles = new ProjectileSystem(scene, world);
-const input = new Input(renderer, camera);
+const input = new Input();
 const audio = new AudioManager();
 
 // ---------- HUD state ----------
@@ -70,7 +70,8 @@ const FIRE_COOLDOWN = 0.28; // seconds between shots
 let elapsed = 0;
 let crosshairKick = 0;      // 1 on fire, decays — makes the crosshair bloom
 
-input.onFire = () => {
+// Polled from the game loop while Space is held; the cooldown gates the rate.
+function tryFire() {
   if (elapsed - lastShot < FIRE_COOLDOWN) return;
   lastShot = elapsed;
   const { position, direction } = tank.getMuzzle();
@@ -81,16 +82,17 @@ input.onFire = () => {
   crosshairKick = 1;    // crosshair bloom
   shots++;
   shotsEl.textContent = shots;
-};
+}
 
 input.onReset = () => tank.reset();
 
 // ---------- Chase camera ----------
-// The camera smoothly trails behind and above the hull. `lerp` (linear
+// The camera smoothly trails behind and above the TURRET (Tanki-style): it
+// swings with Z/X but stays put when you only steer the hull. `lerp` (linear
 // interpolation) each frame gives that springy, non-rigid follow feel.
 const camTarget = new THREE.Vector3();
 function updateCamera(dt) {
-  const a = tank.root.rotation.y;
+  const a = tank.getTurretWorldAngle();
   const back = 14, up = 9;
   const desired = new THREE.Vector3(
     tank.root.position.x - Math.sin(a) * back,
@@ -122,12 +124,13 @@ function updateHud(dt) {
   reloadFillEl.style.width = `${(ready * 100).toFixed(0)}%`;
   reloadFillEl.style.background = ready >= 1 ? '#7cfca0' : '#ffb347';
 
-  // Crosshair: follow the cursor, bloom outward right after firing, and go
-  // amber/dim while the gun is still reloading (clear "can't shoot yet" cue).
+  // Crosshair: fixed at screen centre now that the turret always aims "into"
+  // the view. It blooms outward right after firing and goes amber/dim while
+  // the gun is still reloading (a clear "can't shoot yet" cue).
   crosshairKick = Math.max(0, crosshairKick - dt * 4);
   const scale = 1 + crosshairKick * 0.7;
   crosshairEl.style.transform =
-    `translate(${input.mouseX}px, ${input.mouseY}px) scale(${scale})`;
+    `translate(${window.innerWidth / 2}px, ${window.innerHeight / 2}px) scale(${scale})`;
   crosshairEl.style.opacity = ready >= 1 ? '1' : '0.45';
   crosshairEl.style.borderColor = ready >= 1
     ? 'rgba(142, 197, 255, 0.9)'
@@ -147,6 +150,8 @@ function frame() {
   // paused doesn't produce a giant jump when it resumes.
   const dt = Math.min(clock.getDelta(), 0.05);
   elapsed += dt;
+
+  if (input.isDown('Space')) tryFire();  // hold to auto-fire (cooldown-gated)
 
   tank.update(dt, input, world.obstacles);
   projectiles.update(dt, () => {

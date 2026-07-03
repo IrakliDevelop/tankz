@@ -22,6 +22,7 @@ export class Tank {
 
     this.speed = 18;          // metres per second
     this.turnSpeed = 2.4;     // radians per second (hull steering)
+    this.turretTurnSpeed = 2.0; // radians per second (Z/X turret rotation)
     this.radius = 1.8;        // collision radius (treat tank as a circle)
 
     this.recoil = 0;          // 1 right after firing, decays to 0
@@ -86,6 +87,11 @@ export class Tank {
     this.recoil = 1;
   }
 
+  /** The turret's heading in world space (hull angle + turret's local angle). */
+  getTurretWorldAngle() {
+    return this.root.rotation.y + this.turret.rotation.y;
+  }
+
   /**
    * Advance the tank one frame.
    * @param dt       seconds since last frame
@@ -93,12 +99,24 @@ export class Tank {
    * @param obstacles array of { box } solids to slide against
    */
   update(dt, input, obstacles) {
-    // --- Steering: A/D rotate the hull in place ---
-    const turn = (input.isDown('KeyA') ? 1 : 0) - (input.isDown('KeyD') ? 1 : 0);
-    this.root.rotation.y += turn * this.turnSpeed * dt;
+    // --- Steering: A/D or ←/→ rotate the hull in place ---
+    const turn = (input.isDown('KeyA') || input.isDown('ArrowLeft') ? 1 : 0) -
+                 (input.isDown('KeyD') || input.isDown('ArrowRight') ? 1 : 0);
+    const dHull = turn * this.turnSpeed * dt;
+    this.root.rotation.y += dHull;
+    // The turret is a child of the hull, so a spinning hull would drag it
+    // along. Counter-rotate it by the same amount so its *world* direction
+    // stays put — steering repositions the hull under a stable gun/camera,
+    // which is the Tanki-style feel we want.
+    this.turret.rotation.y -= dHull;
 
-    // --- Drive: W/S move along the hull's current facing ---
-    const drive = (input.isDown('KeyW') ? 1 : 0) - (input.isDown('KeyS') ? 1 : 0);
+    // --- Turret: Z/X swing the turret (and thus the camera) ---
+    const turretTurn = (input.isDown('KeyZ') ? 1 : 0) - (input.isDown('KeyX') ? 1 : 0);
+    this.turret.rotation.y += turretTurn * this.turretTurnSpeed * dt;
+
+    // --- Drive: W/S or ↑/↓ move along the hull's current facing ---
+    const drive = (input.isDown('KeyW') || input.isDown('ArrowUp') ? 1 : 0) -
+                  (input.isDown('KeyS') || input.isDown('ArrowDown') ? 1 : 0);
     if (drive !== 0) {
       // Forward vector for a Y-rotation of `a` is (sin a, 0, cos a).
       const a = this.root.rotation.y;
@@ -106,16 +124,6 @@ export class Tank {
       const nextX = this.root.position.x + Math.sin(a) * step;
       const nextZ = this.root.position.z + Math.cos(a) * step;
       this.#moveWithCollision(nextX, nextZ, obstacles);
-    }
-
-    // --- Aim: point the turret at the mouse's ground position ---
-    if (input.aimPoint) {
-      const dx = input.aimPoint.x - this.root.position.x;
-      const dz = input.aimPoint.z - this.root.position.z;
-      // World heading toward the aim point...
-      const worldAngle = Math.atan2(dx, dz);
-      // ...but the turret is a child of the root, so subtract the hull's angle.
-      this.turret.rotation.y = worldAngle - this.root.rotation.y;
     }
 
     // --- Recoil: bleed `recoil` back to 0, then pose the gun from it ---
