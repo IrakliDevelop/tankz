@@ -72,8 +72,11 @@ touch so it's easy to pick one up.
 ## "Someday" — back toward the Tanki Online inspiration
 
 - **Local split-screen or hotseat** — two tanks, two viewports.
-- **Real multiplayer** — the big one. Would need a server (WebSocket), state
-  sync, and client-side prediction. A separate project in spirit.
+- **Real multiplayer** — the big one. Design is captured in
+  [`MULTIPLAYER.md`](./MULTIPLAYER.md): recommended model is a room server
+  (Colyseus), the hard part is netcode not transport, and the prerequisites
+  (sim/render split, fixed timestep, entity ids, entities-as-collections) are
+  already the foundation items above — so building them now is the runway.
 
 ## Known rough edges in the PoC
 
