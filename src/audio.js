@@ -22,6 +22,8 @@ export class AudioManager {
 
     this.started = false;
     this.engineIntensity = 0;  // smoothed 0 (idle) .. 1 (driving)
+    this.lastActive = 0;       // ctx time we were last moving
+    this.idleTimeout = 3;      // seconds of stillness before the engine cuts out
 
     // Unlock on the first interaction, then never again.
     const unlock = () => this.#start();
@@ -82,25 +84,34 @@ export class AudioManager {
     this.lfoDepth.gain.value = 0;
     this.lfo.connect(this.lfoDepth).connect(this.engineGain.gain);
     this.lfo.start();
+    this.lastActive = this.ctx.currentTime; // let it idle briefly after startup
   }
 
   /** Called each frame: 0 = stopped, 1 = driving. Smoothed for a natural rev. */
   setEngineIntensity(target) {
     this.engineIntensity = target;
+    if (target > 0) this.lastActive = this.ctx.currentTime;
   }
 
   update() {
     if (!this.started) return;
     const t = this.engineIntensity;
+    const now = this.ctx.currentTime;
+
+    // Cut the engine after sitting still for a few seconds (like it stalled
+    // off). `on` multiplies the volume: 1 while running, 0 once idle too long.
+    // It fades gently (long time constant) so it dies away instead of clicking,
+    // and springs back the instant you drive again.
+    const on = (now - this.lastActive) < this.idleTimeout ? 1 : 0;
+    const gainTC = on ? 0.08 : 0.6;
 
     // Idle is quiet, dark and low; driving is louder and a bit brighter. We
     // don't smooth by hand — setTargetAtTime glides each parameter toward its
     // target over the given time constant, which is what gives the natural rev.
-    const now = this.ctx.currentTime;
     const base = 0.05 + t * 0.08;                 // base volume
     const freq = 42 + t * 30;                     // fundamental pitch
 
-    this.engineGain.gain.setTargetAtTime(base, now, 0.08);
+    this.engineGain.gain.setTargetAtTime(base * on, now, gainTC);
     this.osc1.frequency.setTargetAtTime(freq, now, 0.12);
     this.osc2.frequency.setTargetAtTime(freq * 1.007, now, 0.12);
 
@@ -111,7 +122,9 @@ export class AudioManager {
     // Chug faster and deeper as you rev, so acceleration feels alive but never
     // settles into a flat, static buzz.
     this.lfo.frequency.setTargetAtTime(6 + t * 10, now, 0.15);
-    this.lfoDepth.gain.setTargetAtTime(base * (0.3 + t * 0.35), now, 0.1);
+    // Also gate the chug by `on` — otherwise the LFO would keep pulsing the
+    // gain around zero after the engine cuts, leaving an audible throb.
+    this.lfoDepth.gain.setTargetAtTime(base * (0.3 + t * 0.35) * on, now, gainTC);
   }
 
   /** Firing: a low sine that dives in pitch + a noise "crack". A punchy thoomp. */
