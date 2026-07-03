@@ -4,10 +4,14 @@ A running list of possible additions for the proof-of-concept, roughly ordered
 from "quick win" to "bigger project". Each item notes the main file(s) it would
 touch so it's easy to pick one up.
 
+## Done
+
+- ✅ **Sound effects** — engine rumble (revs while driving), firing thoomp, and
+  metallic hit ping. All synthesized live with the Web Audio API, so there are
+  no audio files to ship. *File: `audio.js`, wired in `main.js`.*
+
 ## Quick wins (an evening each)
 
-- **Sound effects** — fire, impact, hit-confirm. Preload `Audio` objects or use
-  the Web Audio API; trigger on `spawn()` / hit. *Files: `projectile.js`, new `audio.js`.*
 - **Muzzle flash light** — add a short-lived `THREE.PointLight` at the muzzle on
   fire for a punchy flash. *Files: `projectile.js`.*
 - **Recoil & camera shake** — nudge the turret back briefly and jitter the

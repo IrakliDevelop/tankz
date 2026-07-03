@@ -3,6 +3,7 @@ import { World } from './world.js';
 import { Tank } from './tank.js';
 import { ProjectileSystem } from './projectile.js';
 import { Input } from './input.js';
+import { AudioManager } from './audio.js';
 
 /**
  * main.js wires everything together and runs the game loop.
@@ -48,6 +49,7 @@ const world = new World(scene);
 const tank = new Tank(scene);
 const projectiles = new ProjectileSystem(scene, world);
 const input = new Input(renderer, camera);
+const audio = new AudioManager();
 
 // ---------- HUD state ----------
 let score = 0;
@@ -65,6 +67,7 @@ input.onFire = () => {
   lastShot = elapsed;
   const { position, direction } = tank.getMuzzle();
   projectiles.spawn(position, direction);
+  audio.fire();
   shots++;
   shotsEl.textContent = shots;
 };
@@ -105,8 +108,15 @@ function frame() {
   projectiles.update(dt, () => {
     score++;
     scoreEl.textContent = score;
+    audio.hit();
   });
   updateCamera(dt);
+
+  // Drive the engine sound: full intensity whenever any movement key is held.
+  const moving = input.isDown('KeyW') || input.isDown('KeyS') ||
+                 input.isDown('KeyA') || input.isDown('KeyD');
+  audio.setEngineIntensity(moving ? 1 : 0);
+  audio.update();
 
   renderer.render(scene, camera);
 }
