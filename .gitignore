@@ -2,3 +2,8 @@ node_modules/
 dist/
 *.log
 .DS_Store
+
+# Superpowers plugin working docs (specs, plans) and brainstorm sessions.
+# These are process artifacts; our durable design docs live in docs/*.md.
+docs/superpowers/
+.superpowers/
