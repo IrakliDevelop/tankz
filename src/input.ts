@@ -10,15 +10,15 @@
 
 // Keys we handle ourselves — swallow their default browser behaviour (Space
 // and the arrows would otherwise scroll the page).
-const HANDLED = new Set([
+const HANDLED = new Set<string>([
   'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
 ]);
 
 export class Input {
-  constructor() {
-    this.keys = new Set();
-    this.onReset = null;       // set by main.js
+  private keys = new Set<string>();
+  onReset: (() => void) | null = null;   // set by main.ts
 
+  constructor() {
     window.addEventListener('keydown', (e) => {
       if (HANDLED.has(e.code)) e.preventDefault();
       this.keys.add(e.code);
@@ -30,7 +30,7 @@ export class Input {
     window.addEventListener('blur', () => this.keys.clear());
   }
 
-  isDown(code) {
+  isDown(code: string): boolean {
     return this.keys.has(code);
   }
 }

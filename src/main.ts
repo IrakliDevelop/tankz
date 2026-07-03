@@ -1,13 +1,14 @@
 import * as THREE from 'three';
-import { World } from './world.js';
-import { Tank } from './tank.js';
-import { Enemy } from './enemy.js';
-import { ProjectileSystem } from './projectile.js';
-import { Input } from './input.js';
-import { AudioManager } from './audio.js';
+import { World } from './world';
+import { Tank } from './tank';
+import { Enemy } from './enemy';
+import { ProjectileSystem } from './projectile';
+import { Input } from './input';
+import { AudioManager } from './audio';
+import type { Combatant } from './types';
 
 /**
- * main.js wires everything together and runs the game loop.
+ * main.ts wires everything together and runs the game loop.
  *
  * Every real-time game boils down to the same loop, running ~60x/second:
  *   1. read input
@@ -54,29 +55,30 @@ const audio = new AudioManager();
 
 // A small squad of enemies, parked at spawn points around the arena edge.
 const ENEMY_COUNT = 4;
-const enemies = [];
+const enemies: Enemy[] = [];
 for (let i = 0; i < ENEMY_COUNT; i++) enemies.push(new Enemy(scene));
 // Dead enemies wait this long, then redeploy at a fresh spawn point.
 const RESPAWN_DELAY = 4;
 
 // The list of things a shell can hit: the player plus every enemy.
-const combatants = [tank, ...enemies];
+const combatants: Combatant[] = [tank, ...enemies];
 
 // ---------- HUD state ----------
+// The `!` asserts these elements exist — they're declared in index.html.
 let score = 0;
 let shots = 0;
 let gameOver = false;
-const scoreEl = document.getElementById('score');
-const shotsEl = document.getElementById('shots');
-const healthFillEl = document.getElementById('healthFill');
-const gameoverEl = document.getElementById('gameover');
+const scoreEl = document.getElementById('score')!;
+const shotsEl = document.getElementById('shots')!;
+const healthFillEl = document.getElementById('healthFill')!;
+const gameoverEl = document.getElementById('gameover')!;
 
 /**
  * Move an enemy to a spawn point that's far from the player (so it doesn't pop
  * in your face) but also away from the other enemies (so they don't stack up).
  */
-function deployEnemy(enemy) {
-  let best = world.spawnPoints[0], bestScore = -Infinity;
+function deployEnemy(enemy: Enemy): void {
+  let best: number[] = world.spawnPoints[0], bestScore = -Infinity;
   for (const [x, z] of world.spawnPoints) {
     const dPlayer = Math.hypot(x - tank.root.position.x, z - tank.root.position.z);
     let dOthers = Infinity;
@@ -97,7 +99,7 @@ enemies.forEach(deployEnemy);
 // applying, so small trauma is barely felt but a fresh shot really jolts —
 // a trick from Vlambeer's "juice" talks. Positional jitter on the camera.
 let trauma = 0;
-const addShake = (amount) => { trauma = Math.min(1, trauma + amount); };
+const addShake = (amount: number) => { trauma = Math.min(1, trauma + amount); };
 
 // ---------- Firing (rate-limited) ----------
 let lastShot = -Infinity;
@@ -116,17 +118,17 @@ function tryFire() {
   addShake(0.32);       // camera jolt
   crosshairKick = 1;    // crosshair bloom
   shots++;
-  shotsEl.textContent = shots;
+  shotsEl.textContent = String(shots);
 }
 
 // R redeploys the whole battle: heal the player, respawn every enemy, zero
 // the score. Used both mid-game and to restart after being destroyed.
-function resetGame() {
+function resetGame(): void {
   tank.reset();
   enemies.forEach(deployEnemy);
   score = 0; shots = 0;
-  scoreEl.textContent = score;
-  shotsEl.textContent = shots;
+  scoreEl.textContent = String(score);
+  shotsEl.textContent = String(shots);
   gameOver = false;
   gameoverEl.hidden = true;
 }
@@ -137,7 +139,7 @@ input.onReset = resetGame;
 // swings with Z/X but stays put when you only steer the hull. `lerp` (linear
 // interpolation) each frame gives that springy, non-rigid follow feel.
 const camTarget = new THREE.Vector3();
-function updateCamera(dt) {
+function updateCamera(dt: number): void {
   const a = tank.getTurretWorldAngle();
   const back = 14, up = 9;
   const desired = new THREE.Vector3(
@@ -162,9 +164,9 @@ function updateCamera(dt) {
 }
 
 // ---------- HUD: crosshair + reload bar ----------
-const crosshairEl = document.getElementById('crosshair');
-const reloadFillEl = document.getElementById('reloadFill');
-function updateHud(dt) {
+const crosshairEl = document.getElementById('crosshair')!;
+const reloadFillEl = document.getElementById('reloadFill')!;
+function updateHud(dt: number): void {
   // Player armor bar: fill by HP fraction, redden as it gets low.
   const hpFrac = Math.max(0, tank.hp / tank.maxHp);
   healthFillEl.style.width = `${(hpFrac * 100).toFixed(0)}%`;
@@ -193,7 +195,7 @@ function updateHud(dt) {
 // ---------- Combat events ----------
 // An enemy takes a shot at the player. We add a little random spread to the
 // aim so enemies aren't pinpoint snipers — that's what makes them dodgeable.
-function fireEnemy(enemy) {
+function fireEnemy(enemy: Enemy): void {
   const { position, direction } = enemy.getMuzzle();
   const spread = 0.06; // radians
   const ang = Math.atan2(direction.x, direction.z) + (Math.random() - 0.5) * 2 * spread;
@@ -203,7 +205,7 @@ function fireEnemy(enemy) {
 }
 
 // Called by the projectile system whenever a shell lands on a tank.
-function onShellHit(combatant, killed) {
+function onShellHit(combatant: Combatant, killed: boolean): void {
   if (!killed) {
     audio.hit();
     // A bigger jolt when *you* get hit, so damage really registers.
@@ -216,10 +218,12 @@ function onShellHit(combatant, killed) {
   projectiles.explode(combatant.root.position.clone().setY(1.2));
   addShake(0.5);
 
-  if (combatant.team === 'enemy') {
+  // `instanceof` narrows the Combatant to a concrete Enemy so we can reach its
+  // enemy-only `diedAt` field type-safely.
+  if (combatant instanceof Enemy) {
     combatant.diedAt = elapsed;      // start the respawn countdown
     score++;
-    scoreEl.textContent = score;
+    scoreEl.textContent = String(score);
   } else {
     // The player died → game over.
     gameOver = true;

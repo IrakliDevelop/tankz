@@ -1,43 +1,67 @@
 import * as THREE from 'three';
+import type { Combatant, Team } from './types';
+import type { World } from './world';
+
+/** A mesh whose material we know is a single MeshBasicMaterial (sparks/puffs). */
+type BasicMesh = THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+
+interface Shell {
+  mesh: THREE.Mesh;
+  vel: THREE.Vector3;
+  age: number;
+  team: Team;
+  damage: number;
+}
+interface Spark { mesh: BasicMesh; vel: THREE.Vector3; age: number; life: number; }
+interface Puff { mesh: BasicMesh; vel: THREE.Vector3; age: number; life: number; growth: number; }
+interface Flash { light: THREE.PointLight; age: number; life: number; }
+
+interface SpawnOpts { team?: Team; damage?: number; speed?: number; }
+interface SmokeOpts {
+  count?: number; color?: number; size?: number;
+  rise?: number; spread?: number; life?: number; drift?: THREE.Vector3;
+}
 
 /**
  * Shells + muzzle-flash / impact sparks.
  *
- * This class is a tiny "system": main.js owns one ProjectileSystem and calls
+ * This class is a tiny "system": main.ts owns one ProjectileSystem and calls
  * spawn() on fire and update() every frame. It keeps its own list of live
  * shells and particles, moves them, checks collisions, and cleans up. Keeping
  * this bookkeeping in one place is a common way to keep the main loop tidy.
  */
 export class ProjectileSystem {
-  constructor(scene, world) {
-    this.scene = scene;
-    this.world = world;
-    this.shells = [];
-    this.sparks = [];
-    this.puffs = [];        // smoke / dust clouds
-    this.flashes = [];      // short-lived muzzle-flash lights
+  private shells: Shell[] = [];
+  private sparks: Spark[] = [];
+  private puffs: Puff[] = [];      // smoke / dust clouds
+  private flashes: Flash[] = [];   // short-lived muzzle-flash lights
 
-    // Reusable geometry/material — cheaper than making new ones per shot.
-    // One shell material per team so friend/foe rounds read at a glance.
-    this.shellGeo = new THREE.SphereGeometry(0.25, 10, 8);
-    this.shellMats = {
-      player: new THREE.MeshStandardMaterial({
-        color: 0xffd257, emissive: 0xff8a00, emissiveIntensity: 1.4,
-      }),
-      enemy: new THREE.MeshStandardMaterial({
-        color: 0xff5a3c, emissive: 0xff2a00, emissiveIntensity: 1.4,
-      }),
-    };
-    this.sparkGeo = new THREE.SphereGeometry(0.12, 6, 6);
-    this.sparkMat = new THREE.MeshBasicMaterial({ color: 0xffb347 });
-    this.puffGeo = new THREE.SphereGeometry(0.5, 8, 8);
-    this.puffMat = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true });
+  // Reusable geometry/material — cheaper than making new ones per shot.
+  // One shell material per team so friend/foe rounds read at a glance.
+  private shellGeo = new THREE.SphereGeometry(0.25, 10, 8);
+  private shellMats: Record<Team, THREE.MeshStandardMaterial> = {
+    player: new THREE.MeshStandardMaterial({
+      color: 0xffd257, emissive: 0xff8a00, emissiveIntensity: 1.4,
+    }),
+    enemy: new THREE.MeshStandardMaterial({
+      color: 0xff5a3c, emissive: 0xff2a00, emissiveIntensity: 1.4,
+    }),
+  };
+  private sparkGeo = new THREE.SphereGeometry(0.12, 6, 6);
+  private sparkMat = new THREE.MeshBasicMaterial({ color: 0xffb347 });
+  private puffGeo = new THREE.SphereGeometry(0.5, 8, 8);
+  private puffMat = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true });
 
-    this.speed = 55;      // shell speed, m/s
-    this.life = 2.5;      // seconds before a stray shell despawns
-  }
+  readonly speed = 55;   // default shell speed, m/s
+  readonly life = 2.5;   // seconds before a stray shell despawns
 
-  spawn(position, direction, { team = 'player', damage = 20, speed = this.speed } = {}) {
+  constructor(private scene: THREE.Scene, private world: World) {}
+
+  spawn(
+    position: THREE.Vector3,
+    direction: THREE.Vector3,
+    { team = 'player', damage = 20, speed = this.speed }: SpawnOpts = {}
+  ): void {
     const mesh = new THREE.Mesh(this.shellGeo, this.shellMats[team]);
     mesh.position.copy(position);
     this.scene.add(mesh);
@@ -58,7 +82,7 @@ export class ProjectileSystem {
   }
 
   /** A bigger one-off blast for a destroyed tank. */
-  explode(position) {
+  explode(position: THREE.Vector3): void {
     this.#burst(position, 24, 0xffa83a);
     this.#flash(position);
     this.smoke(position, {
@@ -70,7 +94,10 @@ export class ProjectileSystem {
    * Emit a puff of smoke/dust. Used both for the muzzle (with `drift` pushing
    * the cloud out the barrel) and for driving dust (called from the game loop).
    */
-  smoke(pos, { count = 4, color = 0x777777, size = 0.5, rise = 1, spread = 1.2, life = 0.7, drift } = {}) {
+  smoke(
+    pos: THREE.Vector3,
+    { count = 4, color = 0x777777, size = 0.5, rise = 1, spread = 1.2, life = 0.7, drift }: SmokeOpts = {}
+  ): void {
     for (let i = 0; i < count; i++) {
       const mesh = new THREE.Mesh(this.puffGeo, this.puffMat.clone());
       mesh.material.color.setHex(color);
@@ -93,7 +120,7 @@ export class ProjectileSystem {
   }
 
   /** A brief point light at the muzzle — actually illuminates the scene. */
-  #flash(pos) {
+  #flash(pos: THREE.Vector3): void {
     const light = new THREE.PointLight(0xffb04a, 8, 14, 2);
     light.position.copy(pos);
     this.scene.add(light);
@@ -101,10 +128,10 @@ export class ProjectileSystem {
   }
 
   /**
-   * @param combatants array of tanks (player + enemies) a shell can hit
+   * @param combatants tanks (player + enemies) a shell can hit
    * @param onHit      called as (combatant, killed) when a shell lands on a tank
    */
-  update(dt, combatants, onHit) {
+  update(dt: number, combatants: Combatant[], onHit?: (c: Combatant, killed: boolean) => void): void {
     // --- Move & test shells (iterate backwards so we can splice safely) ---
     for (let i = this.shells.length - 1; i >= 0; i--) {
       const s = this.shells[i];
@@ -124,7 +151,7 @@ export class ProjectileSystem {
         }
       }
 
-      // Hit an enemy tank? Only tanks on the *other* team can be hit.
+      // Hit a tank on the *other* team?
       if (!dead) {
         for (const c of combatants) {
           if (!c.alive || c.team === s.team) continue;
@@ -184,7 +211,7 @@ export class ProjectileSystem {
   }
 
   /** Spawn a quick puff of `count` particles flying outward from `pos`. */
-  #burst(pos, count, color) {
+  #burst(pos: THREE.Vector3, count: number, color: number): void {
     for (let i = 0; i < count; i++) {
       const mesh = new THREE.Mesh(this.sparkGeo, this.sparkMat.clone());
       mesh.material.color.setHex(color);

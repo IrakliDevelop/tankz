@@ -5,13 +5,21 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },
-  "keywords": ["game", "threejs", "tank", "webgl"],
+  "keywords": [
+    "game",
+    "threejs",
+    "tank",
+    "webgl"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/three": "^0.160.0",
+    "typescript": "^6.0.3",
     "vite": "^5.4.0"
   },
   "dependencies": {

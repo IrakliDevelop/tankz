@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { circleHitsBoxes, tankBox, stepAngle, wrapAngle } from './physics.js';
+import { circleHitsBoxes, tankBox, stepAngle, wrapAngle } from './physics';
+import type { Combatant, Obstacle, Team } from './types';
+import type { Tank } from './tank';
 
 /**
  * An AI-controlled enemy tank.
@@ -10,29 +12,34 @@ import { circleHitsBoxes, tankBox, stepAngle, wrapAngle } from './physics.js';
  * distance from them (approach / retreat / circle), and shoot when lined up.
  * Simple rules like these already read as intelligent in a small arena.
  */
-export class Enemy {
-  constructor(scene) {
-    this.root = new THREE.Group();
+export class Enemy implements Combatant {
+  readonly root = new THREE.Group();
+  private turret!: THREE.Group;
+  private muzzle!: THREE.Object3D;
+  private hullMat!: THREE.MeshStandardMaterial;
+  private turretMat!: THREE.MeshStandardMaterial;
+
+  readonly speed = 12;
+  readonly turnSpeed = 1.6;
+  readonly turretTurnSpeed = 1.8;
+  readonly radius = 1.8;
+
+  readonly team: Team = 'enemy';
+  readonly maxHp = 40;
+  hp = this.maxHp;
+  alive = true;
+
+  readonly fireCooldown = 1.6;  // seconds between shots
+  lastShot = 0;
+  diedAt = 0;                   // ctx time of death, for respawn timing
+  private hitFlash = 0;         // brief white flash when damaged
+
+  // Preferred engagement range — it tries to sit in this band.
+  readonly nearRange = 14;
+  readonly farRange = 26;
+
+  constructor(scene: THREE.Scene) {
     scene.add(this.root);
-
-    this.speed = 12;
-    this.turnSpeed = 1.6;
-    this.turretTurnSpeed = 1.8;
-    this.radius = 1.8;
-
-    this.team = 'enemy';
-    this.maxHp = 40;
-    this.hp = this.maxHp;
-    this.alive = true;
-
-    this.fireCooldown = 1.6;   // seconds between shots
-    this.lastShot = 0;
-    this.hitFlash = 0;         // brief white flash when damaged
-
-    // Preferred engagement range — it tries to sit in this band.
-    this.nearRange = 14;
-    this.farRange = 26;
-
     this.#build();
   }
 
@@ -76,7 +83,7 @@ export class Enemy {
   }
 
   /** Drop the enemy back onto the map, full health, at a given spot. */
-  spawnAt(x, z) {
+  spawnAt(x: number, z: number): void {
     this.root.position.set(x, 0, z);
     this.root.rotation.y = 0;
     this.turret.rotation.y = 0;
@@ -86,11 +93,11 @@ export class Enemy {
     this.root.visible = true;
   }
 
-  getBox() {
+  getBox(): THREE.Box3 {
     return tankBox(this.root.position.x, this.root.position.z);
   }
 
-  takeDamage(amount) {
+  takeDamage(amount: number): boolean {
     if (!this.alive) return false;
     this.hp = Math.max(0, this.hp - amount);
     this.hitFlash = 1;
@@ -104,9 +111,9 @@ export class Enemy {
 
   /**
    * Run the AI for one frame.
-   * @returns {boolean} true if it wants to fire a shell this frame.
+   * @returns true if it wants to fire a shell this frame.
    */
-  update(dt, player, obstacles, elapsed) {
+  update(dt: number, player: Tank, obstacles: Obstacle[], elapsed: number): boolean {
     // Fade the damage flash back to base colour.
     if (this.hitFlash > 0) {
       this.hitFlash = Math.max(0, this.hitFlash - dt * 3);
@@ -127,7 +134,7 @@ export class Enemy {
     this.turret.rotation.y = newTurretWorld - this.root.rotation.y;
 
     // --- Decide where the hull wants to point, and forward/back drive ---
-    let desiredHull, drive;
+    let desiredHull: number, drive: number;
     if (dist > this.farRange) {
       desiredHull = angleToPlayer;  // too far: face the player and close in
       drive = 1;
@@ -161,7 +168,7 @@ export class Enemy {
   }
 
   /** World-space spawn point + forward direction for a fired shell. */
-  getMuzzle() {
+  getMuzzle(): { position: THREE.Vector3; direction: THREE.Vector3 } {
     const position = new THREE.Vector3();
     this.muzzle.getWorldPosition(position);
     const turretPos = new THREE.Vector3();

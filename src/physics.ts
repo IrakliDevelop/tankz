@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { Obstacle } from './types';
 
 /**
  * Tiny shared helpers used by both the player tank and the enemies.
@@ -7,7 +8,9 @@ import * as THREE from 'three';
  */
 
 /** Circle (centre x,z + radius) vs a list of axis-aligned boxes, in the XZ plane. */
-export function circleHitsBoxes(x, z, radius, obstacles) {
+export function circleHitsBoxes(
+  x: number, z: number, radius: number, obstacles: Obstacle[]
+): boolean {
   const r2 = radius * radius;
   for (const { box } of obstacles) {
     // Closest point on the box to the circle centre, then distance check.
@@ -20,7 +23,7 @@ export function circleHitsBoxes(x, z, radius, obstacles) {
 }
 
 /** An axis-aligned box roughly enclosing a tank sitting at (x,z). */
-export function tankBox(x, z) {
+export function tankBox(x: number, z: number): THREE.Box3 {
   return new THREE.Box3().setFromCenterAndSize(
     new THREE.Vector3(x, 1.2, z),
     new THREE.Vector3(3, 2.6, 3)
@@ -28,14 +31,14 @@ export function tankBox(x, z) {
 }
 
 /** Wrap an angle to the range (-π, π]. */
-export function wrapAngle(a) {
+export function wrapAngle(a: number): number {
   while (a > Math.PI) a -= 2 * Math.PI;
   while (a < -Math.PI) a += 2 * Math.PI;
   return a;
 }
 
 /** Rotate `current` toward `target` by at most `maxDelta`, taking the short way. */
-export function stepAngle(current, target, maxDelta) {
+export function stepAngle(current: number, target: number, maxDelta: number): number {
   const diff = wrapAngle(target - current);
   if (Math.abs(diff) <= maxDelta) return target;
   return current + Math.sign(diff) * maxDelta;

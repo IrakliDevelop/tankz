@@ -1,8 +1,9 @@
 import * as THREE from 'three';
+import type { Obstacle } from './types';
 
 /**
  * The World holds everything that isn't the player: the ground, the arena
- * walls, crate obstacles, and destructible target dummies.
+ * walls, and crate obstacles.
  *
  * A key game-dev idea here: for gameplay we don't use the fancy 3D meshes for
  * collision. Instead every solid thing also gets a simple axis-aligned box
@@ -10,11 +11,10 @@ import * as THREE from 'three';
  * is exactly how a lot of arcade games fake physics.
  */
 export class World {
-  constructor(scene) {
-    this.scene = scene;
-    this.half = 40;            // arena extends from -half..+half on X and Z
-    this.obstacles = [];       // { mesh, box } — solid, block tanks & shells
+  readonly half = 40;               // arena extends from -half..+half on X and Z
+  readonly obstacles: Obstacle[] = []; // solid, block tanks & shells
 
+  constructor(private scene: THREE.Scene) {
     this.#buildGround();
     this.#buildWalls();
     this.#buildObstacles();
@@ -71,7 +71,7 @@ export class World {
   }
 
   /** A handful of scattered spawn points near the arena edges, for enemies. */
-  get spawnPoints() {
+  get spawnPoints(): [number, number][] {
     return [[28, 28], [-28, 28], [28, -28], [-28, -28], [0, 32], [0, -32], [32, 0], [-32, 0]];
   }
 }

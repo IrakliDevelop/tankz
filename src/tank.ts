@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { circleHitsBoxes, tankBox } from './physics.js';
+import { circleHitsBoxes, tankBox } from './physics';
+import type { Combatant, Obstacle, Team } from './types';
+import type { Input } from './input';
 
 /**
  * The player's tank.
@@ -16,25 +18,29 @@ import { circleHitsBoxes, tankBox } from './physics.js';
  * should spawn and which way it flies, we just read the barrel's *world*
  * position/direction — no manual trig required.
  */
-export class Tank {
-  constructor(scene) {
-    this.root = new THREE.Group();
+export class Tank implements Combatant {
+  readonly root = new THREE.Group();
+  // `!` = "assigned later" (in #build); tells strict TS we know it's set.
+  turret!: THREE.Group;
+  private barrel!: THREE.Mesh;
+  private muzzle!: THREE.Object3D;
+
+  readonly speed = 18;           // metres per second
+  readonly turnSpeed = 2.4;      // radians per second (hull steering)
+  readonly turretTurnSpeed = 2.0; // radians per second (Z/X turret rotation)
+  readonly radius = 1.8;         // collision radius (treat tank as a circle)
+
+  recoil = 0;                    // 1 right after firing, decays to 0
+  readonly barrelBaseZ = 1.8;    // barrel's resting forward offset
+
+  // Combat state. `team` lets projectiles tell friend from foe.
+  readonly team: Team = 'player';
+  readonly maxHp = 100;
+  hp = this.maxHp;
+  alive = true;
+
+  constructor(scene: THREE.Scene) {
     scene.add(this.root);
-
-    this.speed = 18;          // metres per second
-    this.turnSpeed = 2.4;     // radians per second (hull steering)
-    this.turretTurnSpeed = 2.0; // radians per second (Z/X turret rotation)
-    this.radius = 1.8;        // collision radius (treat tank as a circle)
-
-    this.recoil = 0;          // 1 right after firing, decays to 0
-    this.barrelBaseZ = 1.8;   // barrel's resting forward offset
-
-    // Combat state. `team` lets projectiles tell friend from foe.
-    this.team = 'player';
-    this.maxHp = 100;
-    this.hp = this.maxHp;
-    this.alive = true;
-
     this.#build();
     this.reset();
   }
@@ -92,12 +98,12 @@ export class Tank {
   }
 
   /** Axis-aligned box used for shell collisions. */
-  getBox() {
+  getBox(): THREE.Box3 {
     return tankBox(this.root.position.x, this.root.position.z);
   }
 
   /** Apply damage; returns true if this shot destroyed the tank. */
-  takeDamage(amount) {
+  takeDamage(amount: number): boolean {
     if (!this.alive) return false;
     this.hp = Math.max(0, this.hp - amount);
     if (this.hp === 0) {
@@ -113,17 +119,17 @@ export class Tank {
   }
 
   /** The turret's heading in world space (hull angle + turret's local angle). */
-  getTurretWorldAngle() {
+  getTurretWorldAngle(): number {
     return this.root.rotation.y + this.turret.rotation.y;
   }
 
   /**
    * Advance the tank one frame.
-   * @param dt       seconds since last frame
-   * @param input    Input helper (keyboard state + aim point)
-   * @param obstacles array of { box } solids to slide against
+   * @param dt        seconds since last frame
+   * @param input     Input helper (keyboard state)
+   * @param obstacles solids to slide against
    */
-  update(dt, input, obstacles) {
+  update(dt: number, input: Input, obstacles: Obstacle[]): void {
     // --- Steering: A/D or ←/→ rotate the hull in place ---
     const turn = (input.isDown('KeyA') || input.isDown('ArrowLeft') ? 1 : 0) -
                  (input.isDown('KeyD') || input.isDown('ArrowRight') ? 1 : 0);
@@ -165,7 +171,7 @@ export class Tank {
    * Computed by hand (rotating the local offset by the hull's Y angle) so it
    * doesn't depend on Three.js having refreshed the matrix this frame.
    */
-  getExhaustPoints() {
+  getExhaustPoints(): THREE.Vector3[] {
     const a = this.root.rotation.y;
     const cos = Math.cos(a), sin = Math.sin(a);
     const z = -2.1; // behind the hull
@@ -180,7 +186,7 @@ export class Tank {
    * Try to move to (nextX, nextZ). We test each axis separately so that
    * sliding along a wall still works instead of sticking. Classic trick.
    */
-  #moveWithCollision(nextX, nextZ, obstacles) {
+  #moveWithCollision(nextX: number, nextZ: number, obstacles: Obstacle[]): void {
     const p = this.root.position;
     const r = this.radius;
 
@@ -189,7 +195,7 @@ export class Tank {
   }
 
   /** World-space spawn point + forward direction for a fired shell. */
-  getMuzzle() {
+  getMuzzle(): { position: THREE.Vector3; direction: THREE.Vector3 } {
     const position = new THREE.Vector3();
     this.muzzle.getWorldPosition(position);
 

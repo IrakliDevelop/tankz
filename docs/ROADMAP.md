@@ -21,7 +21,21 @@ touch so it's easy to pick one up.
 - ✅ **Enemy tanks + HP + game over** — AI enemies (track/approach/circle/shoot),
   team-based projectile damage, player & enemy health, explosions, enemy respawn,
   armor bar, kills counter, and a DESTROYED/restart overlay.
-  *Files: `enemy.js`, `physics.js`, `projectile.js`, `tank.js`, `world.js`, `main.js`, `index.html`.*
+  *Files: `enemy.ts`, `physics.ts`, `projectile.ts`, `tank.ts`, `world.ts`, `main.ts`, `index.html`.*
+- ✅ **TypeScript migration** — all of `src/` is now strict TS; shared types in
+  `types.ts`; `npm run typecheck` / `build` gate on `tsc`. See `ARCHITECTURE.md`
+  for the stack + code-structure direction.
+
+## Architecture / foundations (see ARCHITECTURE.md)
+
+- **Composition refactor** — de-duplicate `Tank`/`Enemy` into composed parts
+  (chassis, health, movement, weapon, AI brain). The recommended *next* step.
+- **Separate simulation from rendering** — keep game logic Three/DOM-free so it's
+  testable and could later run server-authoritative (Tanki is multiplayer).
+- **Fixed-timestep loop**, **config module**, **game-state machine**, **object
+  pooling** — see the priority list in `ARCHITECTURE.md`.
+- **Physics engine (Rapier / cannon-es)** — deferred until tank-vs-tank / arcing
+  shells / toppling props are wanted.
 
 ## Quick wins (an evening each)
 

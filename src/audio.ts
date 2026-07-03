@@ -11,19 +11,31 @@
  * resume + start the engine loop then.
  */
 export class AudioManager {
+  private ctx: AudioContext;
+  private master: GainNode;
+  private started = false;
+  private engineIntensity = 0;   // 0 (idle) .. 1 (driving)
+  private lastActive = 0;        // ctx time we were last moving
+  private readonly idleTimeout = 3; // seconds of stillness before the engine cuts
+
+  // Engine graph — created lazily in #start() (hence definite-assignment `!`).
+  private engineGain!: GainNode;
+  private engineFilter!: BiquadFilterNode;
+  private osc1!: OscillatorNode;
+  private osc2!: OscillatorNode;
+  private lfo!: OscillatorNode;
+  private lfoDepth!: GainNode;
+
   constructor() {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
+    // Safari still exposes the constructor only as webkitAudioContext.
+    const Ctx = window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     this.ctx = new Ctx();
 
     // Master volume for everything.
     this.master = this.ctx.createGain();
     this.master.gain.value = 0.5;
     this.master.connect(this.ctx.destination);
-
-    this.started = false;
-    this.engineIntensity = 0;  // smoothed 0 (idle) .. 1 (driving)
-    this.lastActive = 0;       // ctx time we were last moving
-    this.idleTimeout = 3;      // seconds of stillness before the engine cuts out
 
     // Unlock on the first interaction, then never again.
     const unlock = () => this.#start();
@@ -32,7 +44,7 @@ export class AudioManager {
   }
 
   /** A short buffer of white noise — reused for the firing/impact sounds. */
-  #noiseBuffer(seconds = 0.4) {
+  #noiseBuffer(seconds = 0.4): AudioBuffer {
     const len = Math.floor(this.ctx.sampleRate * seconds);
     const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
     const data = buf.getChannelData(0);
@@ -88,12 +100,12 @@ export class AudioManager {
   }
 
   /** Called each frame: 0 = stopped, 1 = driving. Smoothed for a natural rev. */
-  setEngineIntensity(target) {
+  setEngineIntensity(target: number): void {
     this.engineIntensity = target;
     if (target > 0) this.lastActive = this.ctx.currentTime;
   }
 
-  update() {
+  update(): void {
     if (!this.started) return;
     const t = this.engineIntensity;
     const now = this.ctx.currentTime;
@@ -205,7 +217,11 @@ export class AudioManager {
   }
 
   /** Shared helper: a filtered noise burst with an exponential decay. */
-  #noiseHit(now, { cutoff, type, gain, decay }) {
+  #noiseHit(
+    now: number,
+    { cutoff, type, gain, decay }:
+      { cutoff: number; type: BiquadFilterType; gain: number; decay: number }
+  ): void {
     const src = this.ctx.createBufferSource();
     src.buffer = this.#noiseBuffer(decay + 0.05);
     const filter = this.ctx.createBiquadFilter();
