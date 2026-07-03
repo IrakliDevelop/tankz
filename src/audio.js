@@ -56,16 +56,32 @@ export class AudioManager {
     this.engineFilter.frequency.value = 420;
     this.engineFilter.connect(this.engineGain);
 
+    // One sawtooth for growl + one triangle for warm body. A triangle has far
+    // fewer high harmonics than a sawtooth, so the blend is much less buzzy
+    // (and so less fatiguing) than the two-sawtooth wall we had before.
     this.osc1 = this.ctx.createOscillator();
     this.osc1.type = 'sawtooth';
     this.osc1.frequency.value = 42;
     this.osc2 = this.ctx.createOscillator();
-    this.osc2.type = 'sawtooth';
-    this.osc2.frequency.value = 49;   // detuned for beating/thickness
+    this.osc2.type = 'triangle';
+    this.osc2.frequency.value = 42 * 1.007;  // tiny detune = slow, smooth chorus
     this.osc1.connect(this.engineFilter);
     this.osc2.connect(this.engineFilter);
     this.osc1.start();
     this.osc2.start();
+
+    // The "chug": a low-frequency oscillator (LFO) that rhythmically pulses the
+    // engine's volume, like cylinders firing. This is what stops the sound
+    // being a static drone — it gives it a living putt-putt that the ear reads
+    // as an engine instead of tuning out as noise. It feeds the gain node's
+    // gain PARAM: the param's value = its set target + this modulation.
+    this.lfo = this.ctx.createOscillator();
+    this.lfo.type = 'sine';
+    this.lfo.frequency.value = 7;
+    this.lfoDepth = this.ctx.createGain();
+    this.lfoDepth.gain.value = 0;
+    this.lfo.connect(this.lfoDepth).connect(this.engineGain.gain);
+    this.lfo.start();
   }
 
   /** Called each frame: 0 = stopped, 1 = driving. Smoothed for a natural rev. */
@@ -77,14 +93,25 @@ export class AudioManager {
     if (!this.started) return;
     const t = this.engineIntensity;
 
-    // Idle is quiet and low-pitched; driving is louder and higher. We don't
-    // smooth by hand — setTargetAtTime glides each parameter toward its target
-    // over the given time constant, which is what gives the natural rev.
+    // Idle is quiet, dark and low; driving is louder and a bit brighter. We
+    // don't smooth by hand — setTargetAtTime glides each parameter toward its
+    // target over the given time constant, which is what gives the natural rev.
     const now = this.ctx.currentTime;
-    this.engineGain.gain.setTargetAtTime(0.05 + t * 0.11, now, 0.08);
-    this.osc1.frequency.setTargetAtTime(42 + t * 34, now, 0.12);
-    this.osc2.frequency.setTargetAtTime(49 + t * 38, now, 0.12);
-    this.engineFilter.frequency.setTargetAtTime(380 + t * 520, now, 0.12);
+    const base = 0.05 + t * 0.08;                 // base volume
+    const freq = 42 + t * 30;                     // fundamental pitch
+
+    this.engineGain.gain.setTargetAtTime(base, now, 0.08);
+    this.osc1.frequency.setTargetAtTime(freq, now, 0.12);
+    this.osc2.frequency.setTargetAtTime(freq * 1.007, now, 0.12);
+
+    // Keep the filter darker than before — opening it wide is what exposed the
+    // harsh, fatiguing high harmonics. Warmer top end = easier on the ears.
+    this.engineFilter.frequency.setTargetAtTime(360 + t * 380, now, 0.12);
+
+    // Chug faster and deeper as you rev, so acceleration feels alive but never
+    // settles into a flat, static buzz.
+    this.lfo.frequency.setTargetAtTime(6 + t * 10, now, 0.15);
+    this.lfoDepth.gain.setTargetAtTime(base * (0.3 + t * 0.35), now, 0.1);
   }
 
   /** Firing: a low sine that dives in pitch + a noise "crack". A punchy thoomp. */
