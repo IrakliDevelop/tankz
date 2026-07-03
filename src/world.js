@@ -14,12 +14,10 @@ export class World {
     this.scene = scene;
     this.half = 40;            // arena extends from -half..+half on X and Z
     this.obstacles = [];       // { mesh, box } — solid, block tanks & shells
-    this.targets = [];         // { mesh, box, alive } — shootable dummies
 
     this.#buildGround();
     this.#buildWalls();
     this.#buildObstacles();
-    this.#buildTargets();
   }
 
   #buildGround() {
@@ -72,44 +70,8 @@ export class World {
     }
   }
 
-  #buildTargets() {
-    // Bright red "enemy" dummies. Shooting one scores a point; it respawns.
-    const positions = [[10, 10], [-16, -18], [24, -14], [-24, 20], [0, -30], [30, 24]];
-    for (const [x, z] of positions) {
-      const mesh = this.#makeTarget();
-      mesh.position.set(x, 0, z);
-      this.scene.add(mesh);
-      this.targets.push({
-        mesh,
-        box: new THREE.Box3().setFromObject(mesh),
-        alive: true,
-      });
-    }
-  }
-
-  #makeTarget() {
-    const group = new THREE.Group();
-    const mat = new THREE.MeshStandardMaterial({
-      color: 0xd9483b, emissive: 0x3a0f0b, roughness: 0.6,
-    });
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.3, 2.4, 16), mat);
-    body.position.y = 1.2;
-    body.castShadow = true;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.8, 16, 12), mat);
-    head.position.y = 3;
-    head.castShadow = true;
-    group.add(body, head);
-    return group;
-  }
-
-  /** Called when a shell hits a target: hide it, then respawn after a delay. */
-  hitTarget(target) {
-    target.alive = false;
-    target.mesh.visible = false;
-    // setTimeout is fine for a PoC; a "real" engine would use a game timer.
-    setTimeout(() => {
-      target.alive = true;
-      target.mesh.visible = true;
-    }, 1500);
+  /** A handful of scattered spawn points near the arena edges, for enemies. */
+  get spawnPoints() {
+    return [[28, 28], [-28, 28], [28, -28], [-28, -28], [0, 32], [0, -32], [32, 0], [-32, 0]];
   }
 }

@@ -170,6 +170,40 @@ export class AudioManager {
     this.#noiseHit(now, { cutoff: 2600, type: 'bandpass', gain: 0.5, decay: 0.14 });
   }
 
+  /** Enemy shot: a quieter, duller version of fire() so a crowd isn't deafening. */
+  enemyFire() {
+    if (!this.started) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(160, now);
+    osc.frequency.exponentialRampToValueAtTime(45, now + 0.16);
+    const oscGain = this.ctx.createGain();
+    oscGain.gain.setValueAtTime(0.28, now);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    osc.connect(oscGain).connect(this.master);
+    osc.start(now);
+    osc.stop(now + 0.22);
+    this.#noiseHit(now, { cutoff: 1200, type: 'lowpass', gain: 0.22, decay: 0.1 });
+  }
+
+  /** A tank blowing up: a low boom + a big noise blast. */
+  explosion() {
+    if (!this.started) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(120, now);
+    osc.frequency.exponentialRampToValueAtTime(30, now + 0.5);
+    const og = this.ctx.createGain();
+    og.gain.setValueAtTime(1.0, now);
+    og.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    osc.connect(og).connect(this.master);
+    osc.start(now);
+    osc.stop(now + 0.62);
+    this.#noiseHit(now, { cutoff: 900, type: 'lowpass', gain: 0.9, decay: 0.45 });
+  }
+
   /** Shared helper: a filtered noise burst with an exponential decay. */
   #noiseHit(now, { cutoff, type, gain, decay }) {
     const src = this.ctx.createBufferSource();

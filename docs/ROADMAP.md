@@ -16,6 +16,12 @@ touch so it's easy to pick one up.
   the crosshair also dims/reddens while reloading. *Files: `index.html`, `main.js`.*
 - ✅ **Drive dust** — puffs kicked up behind the tracks while moving, reusing the
   smoke particle system. *Files: `projectile.js`, `tank.js`, `main.js`.*
+- ✅ **Tanki-style controls** — WASD/arrows drive the hull, Z/X rotate the turret,
+  Space fires; camera follows the turret, not the hull. *Files: `tank.js`, `input.js`, `main.js`.*
+- ✅ **Enemy tanks + HP + game over** — AI enemies (track/approach/circle/shoot),
+  team-based projectile damage, player & enemy health, explosions, enemy respawn,
+  armor bar, kills counter, and a DESTROYED/restart overlay.
+  *Files: `enemy.js`, `physics.js`, `projectile.js`, `tank.js`, `world.js`, `main.js`, `index.html`.*
 
 ## Quick wins (an evening each)
 
@@ -24,12 +30,15 @@ touch so it's easy to pick one up.
 
 ## Gameplay (a weekend each)
 
-- **Tank health + destruction** — give the player and targets HP; explode on
-  death. Adds real stakes. *Files: `tank.js`, `world.js`.*
-- **Enemy tanks with simple AI** — turret tracks the player, drives toward/away,
-  fires on a timer and line-of-sight. Even dumb AI is fun. *Files: new `enemy.js`.*
-- **Score, waves & game-over screen** — spawn waves of enemies, track a score,
-  show a restart overlay. *Files: `main.js`, `index.html`.*
+- **Waves & difficulty ramp** — instead of a fixed 4 enemies that endlessly
+  respawn, spawn escalating waves (more/tougher enemies each round). Builds on
+  the enemy system already in place. *Files: `main.js`.*
+- **Smarter AI** — line-of-sight checks (don't shoot through crates), aim
+  leading, and using cover. *Files: `enemy.js`.*
+- **Enemy health bars** — a small billboarded bar above each enemy so you can
+  see how close they are to dying. *Files: `enemy.js`.*
+- **Tank-vs-tank collision** — right now tanks can drive through each other and
+  the player; add hull-to-hull blocking. *Files: `physics.js`, `main.js`.*
 - **Pickups** — health packs, rapid-fire, shield crates on the map. *Files: `world.js`.*
 - **Minimap** — a small top-down 2D canvas showing tank + enemies + crates.
   *Files: `index.html`, new `minimap.js`.*

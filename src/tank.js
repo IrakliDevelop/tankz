@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { circleHitsBoxes, tankBox } from './physics.js';
 
 /**
  * The player's tank.
@@ -27,6 +28,12 @@ export class Tank {
 
     this.recoil = 0;          // 1 right after firing, decays to 0
     this.barrelBaseZ = 1.8;   // barrel's resting forward offset
+
+    // Combat state. `team` lets projectiles tell friend from foe.
+    this.team = 'player';
+    this.maxHp = 100;
+    this.hp = this.maxHp;
+    this.alive = true;
 
     this.#build();
     this.reset();
@@ -80,6 +87,24 @@ export class Tank {
     this.root.position.set(0, 0, 0);
     this.root.rotation.y = 0;
     this.turret.rotation.y = 0;
+    this.hp = this.maxHp;
+    this.alive = true;
+  }
+
+  /** Axis-aligned box used for shell collisions. */
+  getBox() {
+    return tankBox(this.root.position.x, this.root.position.z);
+  }
+
+  /** Apply damage; returns true if this shot destroyed the tank. */
+  takeDamage(amount) {
+    if (!this.alive) return false;
+    this.hp = Math.max(0, this.hp - amount);
+    if (this.hp === 0) {
+      this.alive = false;
+      return true;
+    }
+    return false;
   }
 
   /** Called on fire: sets recoil to full; update() animates it back down. */
@@ -157,21 +182,10 @@ export class Tank {
    */
   #moveWithCollision(nextX, nextZ, obstacles) {
     const p = this.root.position;
+    const r = this.radius;
 
-    if (!this.#collides(nextX, p.z, obstacles)) p.x = nextX;
-    if (!this.#collides(p.x, nextZ, obstacles)) p.z = nextZ;
-  }
-
-  /** Circle (tank) vs axis-aligned box test in the XZ plane. */
-  #collides(x, z, obstacles) {
-    for (const { box } of obstacles) {
-      // Closest point on the box to the tank centre, then distance check.
-      const cx = Math.max(box.min.x, Math.min(x, box.max.x));
-      const cz = Math.max(box.min.z, Math.min(z, box.max.z));
-      const ddx = x - cx, ddz = z - cz;
-      if (ddx * ddx + ddz * ddz < this.radius * this.radius) return true;
-    }
-    return false;
+    if (!circleHitsBoxes(nextX, p.z, r, obstacles)) p.x = nextX;
+    if (!circleHitsBoxes(p.x, nextZ, r, obstacles)) p.z = nextZ;
   }
 
   /** World-space spawn point + forward direction for a fired shell. */

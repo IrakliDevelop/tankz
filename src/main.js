@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { World } from './world.js';
 import { Tank } from './tank.js';
+import { Enemy } from './enemy.js';
 import { ProjectileSystem } from './projectile.js';
 import { Input } from './input.js';
 import { AudioManager } from './audio.js';
@@ -51,11 +52,45 @@ const projectiles = new ProjectileSystem(scene, world);
 const input = new Input();
 const audio = new AudioManager();
 
+// A small squad of enemies, parked at spawn points around the arena edge.
+const ENEMY_COUNT = 4;
+const enemies = [];
+for (let i = 0; i < ENEMY_COUNT; i++) enemies.push(new Enemy(scene));
+// Dead enemies wait this long, then redeploy at a fresh spawn point.
+const RESPAWN_DELAY = 4;
+
+// The list of things a shell can hit: the player plus every enemy.
+const combatants = [tank, ...enemies];
+
 // ---------- HUD state ----------
 let score = 0;
 let shots = 0;
+let gameOver = false;
 const scoreEl = document.getElementById('score');
 const shotsEl = document.getElementById('shots');
+const healthFillEl = document.getElementById('healthFill');
+const gameoverEl = document.getElementById('gameover');
+
+/**
+ * Move an enemy to a spawn point that's far from the player (so it doesn't pop
+ * in your face) but also away from the other enemies (so they don't stack up).
+ */
+function deployEnemy(enemy) {
+  let best = world.spawnPoints[0], bestScore = -Infinity;
+  for (const [x, z] of world.spawnPoints) {
+    const dPlayer = Math.hypot(x - tank.root.position.x, z - tank.root.position.z);
+    let dOthers = Infinity;
+    for (const o of enemies) {
+      if (o === enemy || !o.alive) continue;
+      dOthers = Math.min(dOthers, Math.hypot(x - o.root.position.x, z - o.root.position.z));
+    }
+    // Favour distance from the player, but penalise crowding onto a neighbour.
+    const score = dPlayer + Math.min(dOthers, 20);
+    if (score > bestScore) { bestScore = score; best = [x, z]; }
+  }
+  enemy.spawnAt(best[0], best[1]);
+}
+enemies.forEach(deployEnemy);
 
 // ---------- Screen shake ----------
 // `trauma` rises on impactful events and decays every frame. We square it when
@@ -72,10 +107,10 @@ let crosshairKick = 0;      // 1 on fire, decays — makes the crosshair bloom
 
 // Polled from the game loop while Space is held; the cooldown gates the rate.
 function tryFire() {
-  if (elapsed - lastShot < FIRE_COOLDOWN) return;
+  if (gameOver || elapsed - lastShot < FIRE_COOLDOWN) return;
   lastShot = elapsed;
   const { position, direction } = tank.getMuzzle();
-  projectiles.spawn(position, direction);
+  projectiles.spawn(position, direction, { team: 'player', damage: 20 });
   audio.fire();
   tank.kick();          // barrel recoil + muzzle climb
   addShake(0.32);       // camera jolt
@@ -84,7 +119,18 @@ function tryFire() {
   shotsEl.textContent = shots;
 }
 
-input.onReset = () => tank.reset();
+// R redeploys the whole battle: heal the player, respawn every enemy, zero
+// the score. Used both mid-game and to restart after being destroyed.
+function resetGame() {
+  tank.reset();
+  enemies.forEach(deployEnemy);
+  score = 0; shots = 0;
+  scoreEl.textContent = score;
+  shotsEl.textContent = shots;
+  gameOver = false;
+  gameoverEl.hidden = true;
+}
+input.onReset = resetGame;
 
 // ---------- Chase camera ----------
 // The camera smoothly trails behind and above the TURRET (Tanki-style): it
@@ -119,6 +165,13 @@ function updateCamera(dt) {
 const crosshairEl = document.getElementById('crosshair');
 const reloadFillEl = document.getElementById('reloadFill');
 function updateHud(dt) {
+  // Player armor bar: fill by HP fraction, redden as it gets low.
+  const hpFrac = Math.max(0, tank.hp / tank.maxHp);
+  healthFillEl.style.width = `${(hpFrac * 100).toFixed(0)}%`;
+  healthFillEl.style.background = hpFrac > 0.5
+    ? 'linear-gradient(90deg, #56d364, #8ec5ff)'
+    : hpFrac > 0.25 ? '#e3b341' : '#ff6b5b';
+
   // Reload progress 0..1 since the last shot.
   const ready = Math.min(1, (elapsed - lastShot) / FIRE_COOLDOWN);
   reloadFillEl.style.width = `${(ready * 100).toFixed(0)}%`;
@@ -137,6 +190,43 @@ function updateHud(dt) {
     : 'rgba(255, 160, 80, 0.8)';
 }
 
+// ---------- Combat events ----------
+// An enemy takes a shot at the player. We add a little random spread to the
+// aim so enemies aren't pinpoint snipers — that's what makes them dodgeable.
+function fireEnemy(enemy) {
+  const { position, direction } = enemy.getMuzzle();
+  const spread = 0.06; // radians
+  const ang = Math.atan2(direction.x, direction.z) + (Math.random() - 0.5) * 2 * spread;
+  const dir = new THREE.Vector3(Math.sin(ang), 0, Math.cos(ang));
+  projectiles.spawn(position, dir, { team: 'enemy', damage: 8, speed: 42 });
+  audio.enemyFire();
+}
+
+// Called by the projectile system whenever a shell lands on a tank.
+function onShellHit(combatant, killed) {
+  if (!killed) {
+    audio.hit();
+    // A bigger jolt when *you* get hit, so damage really registers.
+    addShake(combatant.team === 'player' ? 0.4 : 0.12);
+    return;
+  }
+
+  // Something was destroyed.
+  audio.explosion();
+  projectiles.explode(combatant.root.position.clone().setY(1.2));
+  addShake(0.5);
+
+  if (combatant.team === 'enemy') {
+    combatant.diedAt = elapsed;      // start the respawn countdown
+    score++;
+    scoreEl.textContent = score;
+  } else {
+    // The player died → game over.
+    gameOver = true;
+    gameoverEl.hidden = false;
+  }
+}
+
 // ---------- Drive dust ----------
 // Kick up a puff behind the tracks a few times a second while moving.
 let dustTimer = 0;
@@ -151,21 +241,34 @@ function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
   elapsed += dt;
 
-  if (input.isDown('Space')) tryFire();  // hold to auto-fire (cooldown-gated)
+  if (!gameOver) {
+    if (input.isDown('Space')) tryFire();  // hold to auto-fire (cooldown-gated)
 
-  tank.update(dt, input, world.obstacles);
-  projectiles.update(dt, () => {
-    score++;
-    scoreEl.textContent = score;
-    audio.hit();
-    addShake(0.18);   // a lighter jolt when a shell connects
-  });
+    tank.update(dt, input, world.obstacles);
+
+    // Enemy AI: each live one thinks & moves; dead ones wait to redeploy.
+    for (const e of enemies) {
+      if (e.alive) {
+        const wantsToFire = e.update(dt, tank, world.obstacles, elapsed);
+        if (wantsToFire) fireEnemy(e);
+      } else if (elapsed - e.diedAt > RESPAWN_DELAY) {
+        deployEnemy(e);
+      }
+    }
+  }
+
+  // Shells still fly & fade even during the game-over freeze (looks nicer).
+  projectiles.update(dt, combatants, onShellHit);
+
   updateCamera(dt);
   updateHud(dt);
 
   // Drive the engine sound: full intensity whenever any movement key is held.
-  const moving = input.isDown('KeyW') || input.isDown('KeyS') ||
-                 input.isDown('KeyA') || input.isDown('KeyD');
+  const moving = !gameOver && (
+    input.isDown('KeyW') || input.isDown('KeyS') ||
+    input.isDown('KeyA') || input.isDown('KeyD') ||
+    input.isDown('ArrowUp') || input.isDown('ArrowDown') ||
+    input.isDown('ArrowLeft') || input.isDown('ArrowRight'));
   audio.setEngineIntensity(moving ? 1 : 0);
   audio.update();
 

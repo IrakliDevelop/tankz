@@ -102,6 +102,46 @@
       }
       #crosshair::before { left: 11px; top: -6px; width: 2px; height: 6px; }
       #crosshair::after { left: -6px; top: 11px; width: 6px; height: 2px; }
+
+      /* Player health bar — top centre. */
+      #healthWrap {
+        position: absolute;
+        top: 16px;
+        left: 50%;
+        width: 260px;
+        margin-left: -130px;
+        text-align: center;
+      }
+      #healthLabel { font-size: 11px; letter-spacing: 2px; opacity: 0.8; margin-bottom: 4px; }
+      #health {
+        height: 14px;
+        background: rgba(10, 16, 24, 0.6);
+        border: 1px solid rgba(120, 180, 255, 0.3);
+        border-radius: 7px;
+        overflow: hidden;
+      }
+      #healthFill {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, #56d364, #8ec5ff);
+        transition: width 0.15s linear, background-color 0.2s;
+      }
+
+      /* Game-over overlay. */
+      #gameover {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        background: rgba(6, 9, 14, 0.72);
+        text-align: center;
+      }
+      #gameover[hidden] { display: none; }
+      #gameover .title { font-size: 46px; font-weight: 700; color: #ff6b5b; letter-spacing: 4px; }
+      #gameover .sub { font-size: 16px; opacity: 0.85; }
     </style>
   </head>
   <body>
@@ -110,15 +150,23 @@
         <div><b>TANKZ</b> — proof of concept</div>
         <div><kbd>W</kbd><kbd>S</kbd> / <kbd>↑</kbd><kbd>↓</kbd> drive &nbsp; <kbd>A</kbd><kbd>D</kbd> / <kbd>←</kbd><kbd>→</kbd> steer hull</div>
         <div><kbd>Z</kbd><kbd>X</kbd> rotate turret &nbsp; <kbd>Space</kbd> fire</div>
-        <div><kbd>R</kbd> reset position</div>
+        <div><kbd>R</kbd> restart battle</div>
       </div>
       <div id="stats">
-        <div class="big"><span id="score">0</span> hits</div>
+        <div class="big"><span id="score">0</span> kills</div>
         <div>shots: <span id="shots">0</span></div>
+      </div>
+      <div id="healthWrap">
+        <div id="healthLabel">ARMOR</div>
+        <div id="health"><div id="healthFill"></div></div>
       </div>
       <div id="crosshair"></div>
       <div id="reloadLabel">RELOAD</div>
       <div id="reload"><div id="reloadFill"></div></div>
+      <div id="gameover" hidden>
+        <div class="title">DESTROYED</div>
+        <div class="sub">press <b>R</b> to redeploy</div>
+      </div>
     </div>
 
     <!-- Vite resolves this bare import from node_modules. -->

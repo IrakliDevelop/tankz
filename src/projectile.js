@@ -18,10 +18,16 @@ export class ProjectileSystem {
     this.flashes = [];      // short-lived muzzle-flash lights
 
     // Reusable geometry/material — cheaper than making new ones per shot.
+    // One shell material per team so friend/foe rounds read at a glance.
     this.shellGeo = new THREE.SphereGeometry(0.25, 10, 8);
-    this.shellMat = new THREE.MeshStandardMaterial({
-      color: 0xffd257, emissive: 0xff8a00, emissiveIntensity: 1.4,
-    });
+    this.shellMats = {
+      player: new THREE.MeshStandardMaterial({
+        color: 0xffd257, emissive: 0xff8a00, emissiveIntensity: 1.4,
+      }),
+      enemy: new THREE.MeshStandardMaterial({
+        color: 0xff5a3c, emissive: 0xff2a00, emissiveIntensity: 1.4,
+      }),
+    };
     this.sparkGeo = new THREE.SphereGeometry(0.12, 6, 6);
     this.sparkMat = new THREE.MeshBasicMaterial({ color: 0xffb347 });
     this.puffGeo = new THREE.SphereGeometry(0.5, 8, 8);
@@ -31,20 +37,32 @@ export class ProjectileSystem {
     this.life = 2.5;      // seconds before a stray shell despawns
   }
 
-  spawn(position, direction) {
-    const mesh = new THREE.Mesh(this.shellGeo, this.shellMat);
+  spawn(position, direction, { team = 'player', damage = 20, speed = this.speed } = {}) {
+    const mesh = new THREE.Mesh(this.shellGeo, this.shellMats[team]);
     mesh.position.copy(position);
     this.scene.add(mesh);
     this.shells.push({
       mesh,
-      vel: direction.clone().multiplyScalar(this.speed),
+      vel: direction.clone().multiplyScalar(speed),
       age: 0,
+      team,
+      damage,
     });
     // Muzzle feedback: spark burst + a real flash of light + drifting smoke.
-    this.#burst(position, 6, 0xffd257);
+    const sparkColor = team === 'enemy' ? 0xff7a4a : 0xffd257;
+    this.#burst(position, 6, sparkColor);
     this.#flash(position);
     this.smoke(position, {
       count: 4, color: 0x5a5a5a, size: 0.5, rise: 1.0, spread: 1.2, drift: direction,
+    });
+  }
+
+  /** A bigger one-off blast for a destroyed tank. */
+  explode(position) {
+    this.#burst(position, 24, 0xffa83a);
+    this.#flash(position);
+    this.smoke(position, {
+      count: 12, color: 0x3a3a3a, size: 1.0, rise: 1.6, spread: 3, life: 1.1,
     });
   }
 
@@ -82,7 +100,11 @@ export class ProjectileSystem {
     this.flashes.push({ light, age: 0, life: 0.09 });
   }
 
-  update(dt, onHitTarget) {
+  /**
+   * @param combatants array of tanks (player + enemies) a shell can hit
+   * @param onHit      called as (combatant, killed) when a shell lands on a tank
+   */
+  update(dt, combatants, onHit) {
     // --- Move & test shells (iterate backwards so we can splice safely) ---
     for (let i = this.shells.length - 1; i >= 0; i--) {
       const s = this.shells[i];
@@ -102,13 +124,14 @@ export class ProjectileSystem {
         }
       }
 
-      // Hit a live target?
+      // Hit an enemy tank? Only tanks on the *other* team can be hit.
       if (!dead) {
-        for (const t of this.world.targets) {
-          if (t.alive && t.box.containsPoint(s.mesh.position)) {
-            this.#burst(s.mesh.position, 16, 0xff5533);
-            this.world.hitTarget(t);
-            onHitTarget?.();
+        for (const c of combatants) {
+          if (!c.alive || c.team === s.team) continue;
+          if (c.getBox().containsPoint(s.mesh.position)) {
+            this.#burst(s.mesh.position, 14, 0xff7a4a);
+            const killed = c.takeDamage(s.damage);
+            onHit?.(c, killed);
             dead = true;
             break;
           }
