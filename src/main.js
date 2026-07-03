@@ -57,10 +57,18 @@ let shots = 0;
 const scoreEl = document.getElementById('score');
 const shotsEl = document.getElementById('shots');
 
+// ---------- Screen shake ----------
+// `trauma` rises on impactful events and decays every frame. We square it when
+// applying, so small trauma is barely felt but a fresh shot really jolts —
+// a trick from Vlambeer's "juice" talks. Positional jitter on the camera.
+let trauma = 0;
+const addShake = (amount) => { trauma = Math.min(1, trauma + amount); };
+
 // ---------- Firing (rate-limited) ----------
 let lastShot = -Infinity;
 const FIRE_COOLDOWN = 0.28; // seconds between shots
 let elapsed = 0;
+let crosshairKick = 0;      // 1 on fire, decays — makes the crosshair bloom
 
 input.onFire = () => {
   if (elapsed - lastShot < FIRE_COOLDOWN) return;
@@ -68,6 +76,9 @@ input.onFire = () => {
   const { position, direction } = tank.getMuzzle();
   projectiles.spawn(position, direction);
   audio.fire();
+  tank.kick();          // barrel recoil + muzzle climb
+  addShake(0.32);       // camera jolt
+  crosshairKick = 1;    // crosshair bloom
   shots++;
   shotsEl.textContent = shots;
 };
@@ -90,9 +101,42 @@ function updateCamera(dt) {
   const k = 1 - Math.pow(0.001, dt);
   camera.position.lerp(desired, k);
 
+  // Apply shake as a random positional offset *before* lookAt, so both the
+  // position and the resulting view direction wobble. trauma^2 = punchy falloff.
+  trauma = Math.max(0, trauma - dt * 1.8);
+  const s = trauma * trauma * 1.4;
+  camera.position.x += (Math.random() - 0.5) * s;
+  camera.position.y += (Math.random() - 0.5) * s;
+  camera.position.z += (Math.random() - 0.5) * s;
+
   camTarget.lerp(tank.root.position, k);
   camera.lookAt(camTarget.x, 1.5, camTarget.z);
 }
+
+// ---------- HUD: crosshair + reload bar ----------
+const crosshairEl = document.getElementById('crosshair');
+const reloadFillEl = document.getElementById('reloadFill');
+function updateHud(dt) {
+  // Reload progress 0..1 since the last shot.
+  const ready = Math.min(1, (elapsed - lastShot) / FIRE_COOLDOWN);
+  reloadFillEl.style.width = `${(ready * 100).toFixed(0)}%`;
+  reloadFillEl.style.background = ready >= 1 ? '#7cfca0' : '#ffb347';
+
+  // Crosshair: follow the cursor, bloom outward right after firing, and go
+  // amber/dim while the gun is still reloading (clear "can't shoot yet" cue).
+  crosshairKick = Math.max(0, crosshairKick - dt * 4);
+  const scale = 1 + crosshairKick * 0.7;
+  crosshairEl.style.transform =
+    `translate(${input.mouseX}px, ${input.mouseY}px) scale(${scale})`;
+  crosshairEl.style.opacity = ready >= 1 ? '1' : '0.45';
+  crosshairEl.style.borderColor = ready >= 1
+    ? 'rgba(142, 197, 255, 0.9)'
+    : 'rgba(255, 160, 80, 0.8)';
+}
+
+// ---------- Drive dust ----------
+// Kick up a puff behind the tracks a few times a second while moving.
+let dustTimer = 0;
 
 // ---------- The loop ----------
 const clock = new THREE.Clock();
@@ -109,14 +153,31 @@ function frame() {
     score++;
     scoreEl.textContent = score;
     audio.hit();
+    addShake(0.18);   // a lighter jolt when a shell connects
   });
   updateCamera(dt);
+  updateHud(dt);
 
   // Drive the engine sound: full intensity whenever any movement key is held.
   const moving = input.isDown('KeyW') || input.isDown('KeyS') ||
                  input.isDown('KeyA') || input.isDown('KeyD');
   audio.setEngineIntensity(moving ? 1 : 0);
   audio.update();
+
+  // Drive dust: emit a couple of puffs per second behind the tracks.
+  if (moving) {
+    dustTimer += dt;
+    if (dustTimer >= 0.07) {
+      dustTimer = 0;
+      for (const pt of tank.getExhaustPoints()) {
+        projectiles.smoke(pt, {
+          count: 1, color: 0x6b5a44, size: 0.45, rise: 0.7, spread: 0.5, life: 0.6,
+        });
+      }
+    }
+  } else {
+    dustTimer = 0;
+  }
 
   renderer.render(scene, camera);
 }

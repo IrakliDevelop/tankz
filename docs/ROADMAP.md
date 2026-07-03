@@ -9,17 +9,16 @@ touch so it's easy to pick one up.
 - ✅ **Sound effects** — engine rumble (revs while driving), firing thoomp, and
   metallic hit ping. All synthesized live with the Web Audio API, so there are
   no audio files to ship. *File: `audio.js`, wired in `main.js`.*
+- ✅ **Shot juice** — muzzle flash (real point light), barrel recoil + muzzle
+  climb, muzzle smoke, camera shake (on fire + lighter on hit), and a crosshair
+  that blooms on fire. *Files: `tank.js`, `projectile.js`, `main.js`.*
+- ✅ **Reload indicator** — bottom-centre bar that refills over `FIRE_COOLDOWN`;
+  the crosshair also dims/reddens while reloading. *Files: `index.html`, `main.js`.*
+- ✅ **Drive dust** — puffs kicked up behind the tracks while moving, reusing the
+  smoke particle system. *Files: `projectile.js`, `tank.js`, `main.js`.*
 
 ## Quick wins (an evening each)
 
-- **Muzzle flash light** — add a short-lived `THREE.PointLight` at the muzzle on
-  fire for a punchy flash. *Files: `projectile.js`.*
-- **Recoil & camera shake** — nudge the turret back briefly and jitter the
-  camera on fire for game feel. *Files: `tank.js`, `main.js`.*
-- **Reload/cooldown indicator** — small HUD bar that refills over `FIRE_COOLDOWN`.
-  *Files: `index.html`, `main.js`.*
-- **Drive smoke/dust particles** — reuse the spark burst system behind the tracks
-  while moving. *Files: `projectile.js`, `tank.js`.*
 - **Tune-ability** — pull speeds, cooldown, colours into a single `config.js` so
   values are easy to experiment with. *Files: new `config.js`.*
 

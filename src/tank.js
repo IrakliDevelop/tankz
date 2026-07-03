@@ -24,6 +24,9 @@ export class Tank {
     this.turnSpeed = 2.4;     // radians per second (hull steering)
     this.radius = 1.8;        // collision radius (treat tank as a circle)
 
+    this.recoil = 0;          // 1 right after firing, decays to 0
+    this.barrelBaseZ = 1.8;   // barrel's resting forward offset
+
     this.#build();
     this.reset();
   }
@@ -56,14 +59,15 @@ export class Tank {
     this.turret.add(dome);
 
     // --- Barrel: a child of the turret, pointing along +Z (forward) ---
-    const barrel = new THREE.Mesh(
+    // Kept as `this.barrel` so we can slide it back on recoil.
+    this.barrel = new THREE.Mesh(
       new THREE.CylinderGeometry(0.18, 0.22, 2.6, 12),
       new THREE.MeshStandardMaterial({ color: 0x2f3a24 })
     );
-    barrel.rotation.x = Math.PI / 2;   // cylinders are vertical by default; lay it flat
-    barrel.position.set(0, 0.1, 1.8);  // push it out the front of the turret
-    barrel.castShadow = true;
-    this.turret.add(barrel);
+    this.barrel.rotation.x = Math.PI / 2;   // cylinders are vertical by default; lay it flat
+    this.barrel.position.set(0, 0.1, this.barrelBaseZ);  // push it out the front of the turret
+    this.barrel.castShadow = true;
+    this.turret.add(this.barrel);
 
     // An empty marker at the very tip of the barrel = the muzzle.
     this.muzzle = new THREE.Object3D();
@@ -75,6 +79,11 @@ export class Tank {
     this.root.position.set(0, 0, 0);
     this.root.rotation.y = 0;
     this.turret.rotation.y = 0;
+  }
+
+  /** Called on fire: sets recoil to full; update() animates it back down. */
+  kick() {
+    this.recoil = 1;
   }
 
   /**
@@ -108,6 +117,30 @@ export class Tank {
       // ...but the turret is a child of the root, so subtract the hull's angle.
       this.turret.rotation.y = worldAngle - this.root.rotation.y;
     }
+
+    // --- Recoil: bleed `recoil` back to 0, then pose the gun from it ---
+    // Linear decay over ~0.22s. While it's non-zero the barrel slides back
+    // into the turret and the whole turret noses up (muzzle climb), then
+    // springs back to rest. Cheap, but it sells the weight of the shot.
+    this.recoil = Math.max(0, this.recoil - dt / 0.22);
+    this.barrel.position.z = this.barrelBaseZ - this.recoil * 0.55;
+    this.turret.rotation.x = this.recoil * 0.14;
+  }
+
+  /**
+   * World-space points just behind each track — where driving kicks up dust.
+   * Computed by hand (rotating the local offset by the hull's Y angle) so it
+   * doesn't depend on Three.js having refreshed the matrix this frame.
+   */
+  getExhaustPoints() {
+    const a = this.root.rotation.y;
+    const cos = Math.cos(a), sin = Math.sin(a);
+    const z = -2.1; // behind the hull
+    return [-1.5, 1.5].map((x) => new THREE.Vector3(
+      this.root.position.x + x * cos + z * sin,
+      0.2,
+      this.root.position.z - x * sin + z * cos
+    ));
   }
 
   /**

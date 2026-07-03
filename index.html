@@ -54,6 +54,37 @@
       }
       #stats .big { font-size: 22px; color: #8ec5ff; }
 
+      /* Reload bar — fills up over the fire cooldown, bottom-centre. */
+      #reload {
+        position: absolute;
+        left: 50%;
+        bottom: 34px;
+        width: 180px;
+        height: 8px;
+        margin-left: -90px;
+        background: rgba(10, 16, 24, 0.6);
+        border: 1px solid rgba(120, 180, 255, 0.3);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      #reloadFill {
+        width: 0%;
+        height: 100%;
+        background: #ffb347;
+        transition: background-color 0.1s linear;
+      }
+      #reloadLabel {
+        position: absolute;
+        left: 50%;
+        bottom: 46px;
+        width: 180px;
+        margin-left: -90px;
+        text-align: center;
+        font-size: 11px;
+        letter-spacing: 1px;
+        opacity: 0.7;
+      }
+
       /* Crosshair follows the mouse (aim point). */
       #crosshair {
         position: absolute;
@@ -86,6 +117,8 @@
         <div>shots: <span id="shots">0</span></div>
       </div>
       <div id="crosshair"></div>
+      <div id="reloadLabel">RELOAD</div>
+      <div id="reload"><div id="reloadFill"></div></div>
     </div>
 
     <!-- Vite resolves this bare import from node_modules. -->

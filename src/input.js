@@ -14,6 +14,8 @@ export class Input {
     this.camera = camera;
     this.keys = new Set();
     this.aimPoint = null;      // THREE.Vector3 on the ground, or null
+    this.mouseX = window.innerWidth / 2;   // last cursor position, in pixels
+    this.mouseY = window.innerHeight / 2;
     this.onFire = null;        // set by main.js
     this.onReset = null;
 
@@ -45,6 +47,9 @@ export class Input {
   }
 
   #updateAim(e) {
+    this.mouseX = e.clientX;
+    this.mouseY = e.clientY;
+
     // Convert pixel coords → normalized device coords (-1..1), y flipped.
     this.mouseNdc.x = (e.clientX / window.innerWidth) * 2 - 1;
     this.mouseNdc.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -55,9 +60,7 @@ export class Input {
     if (this.raycaster.ray.intersectPlane(this.groundPlane, hit)) {
       this.aimPoint = hit;
     }
-
-    // Move the DOM crosshair to the cursor.
-    const cross = document.getElementById('crosshair');
-    if (cross) cross.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+    // The crosshair's on-screen position is now driven by the game loop
+    // (main.js) so it can also bloom on fire and recolour while reloading.
   }
 }
