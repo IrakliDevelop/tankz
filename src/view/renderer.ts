@@ -35,13 +35,19 @@ export class Renderer {
     }
   }
 
+  /** The tank's interpolated world position for the current frame. */
+  tankRenderPos(state: SimState, alpha: number): Vec2 {
+    return {
+      x: lerp(this.prevTank.x, state.tank.pos.x, alpha),
+      y: lerp(this.prevTank.y, state.tank.pos.y, alpha),
+    };
+  }
+
   /** Call once per animation frame. alpha in [0,1) interpolates prev → current. */
   render(state: SimState, alpha: number): void {
     const t = state.tank;
-    this.tankVisual.root.position.set(
-      lerp(this.prevTank.x, t.pos.x, alpha),
-      lerp(this.prevTank.y, t.pos.y, alpha),
-    );
+    const p = this.tankRenderPos(state, alpha);
+    this.tankVisual.root.position.set(p.x, p.y);
     this.tankVisual.hull.rotation = lerpAngle(this.prevTank.hullAngle, t.hullAngle, alpha);
     this.tankVisual.turret.rotation = lerpAngle(this.prevTank.turretAngle, t.turretAngle, alpha);
 

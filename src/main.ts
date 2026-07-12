@@ -20,13 +20,12 @@ async function start(): Promise<void> {
   const keys = new Set<string>();
   window.addEventListener('keydown', (e) => keys.add(e.code));
   window.addEventListener('keyup', (e) => keys.delete(e.code));
-  window.addEventListener('blur', () => keys.clear()); // don't get stuck driving on alt-tab
-
   const mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2, down: false };
   window.addEventListener('pointermove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
   window.addEventListener('pointerdown', (e) => { if (e.button === 0) mouse.down = true; });
   window.addEventListener('pointerup', (e) => { if (e.button === 0) mouse.down = false; });
   window.addEventListener('contextmenu', (e) => e.preventDefault());
+  window.addEventListener('blur', () => { keys.clear(); mouse.down = false; }); // don't get stuck driving/firing on alt-tab
 
   // ---- World ----
   const state = createSim();
@@ -57,8 +56,9 @@ async function start(): Promise<void> {
       stepSim(state, readIntent());
       accumulator -= SIM_DT;
     }
-    camera.update(state.tank.pos, app.screen.width, app.screen.height, ticker.deltaMS / 1000);
-    renderer.render(state, accumulator / SIM_DT);
+    const alpha = accumulator / SIM_DT;
+    camera.update(renderer.tankRenderPos(state, alpha), app.screen.width, app.screen.height, ticker.deltaMS / 1000);
+    renderer.render(state, alpha);
   });
 }
 
