@@ -3,173 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tankz — a tiny offline tank game</title>
+    <title>Tankz — driving demo</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0e13; }
-      /* The renderer's <canvas> is appended to <body> and fills the screen. */
       canvas { display: block; }
-
-      /* ---- HUD (heads-up display) — plain DOM drawn on top of the WebGL canvas ---- */
-      #hud {
-        position: fixed;
-        inset: 0;
-        pointer-events: none; /* let clicks fall through to the game */
-        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-        color: #cfe8ff;
-      }
       #help {
-        position: absolute;
+        position: fixed;
         top: 16px;
         left: 16px;
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        font-size: 13px;
+        line-height: 1.7;
+        color: #cfe8ff;
         background: rgba(10, 16, 24, 0.6);
         border: 1px solid rgba(120, 180, 255, 0.25);
         border-radius: 10px;
         padding: 12px 14px;
-        font-size: 13px;
-        line-height: 1.7;
-        backdrop-filter: blur(4px);
+        pointer-events: none;
       }
       #help b { color: #8ec5ff; }
-      #help kbd {
-        display: inline-block;
-        min-width: 18px;
-        text-align: center;
-        padding: 1px 6px;
-        margin: 0 1px;
-        border-radius: 4px;
-        background: #1b2634;
-        border: 1px solid #2f4155;
-        border-bottom-width: 2px;
-        font-size: 12px;
-      }
-      #stats {
-        position: absolute;
-        top: 16px;
-        right: 16px;
-        text-align: right;
-        font-size: 13px;
-        line-height: 1.6;
-        text-shadow: 0 1px 2px #000;
-      }
-      #stats .big { font-size: 22px; color: #8ec5ff; }
-
-      /* Reload bar — fills up over the fire cooldown, bottom-centre. */
-      #reload {
-        position: absolute;
-        left: 50%;
-        bottom: 34px;
-        width: 180px;
-        height: 8px;
-        margin-left: -90px;
-        background: rgba(10, 16, 24, 0.6);
-        border: 1px solid rgba(120, 180, 255, 0.3);
-        border-radius: 6px;
-        overflow: hidden;
-      }
-      #reloadFill {
-        width: 0%;
-        height: 100%;
-        background: #ffb347;
-        transition: background-color 0.1s linear;
-      }
-      #reloadLabel {
-        position: absolute;
-        left: 50%;
-        bottom: 46px;
-        width: 180px;
-        margin-left: -90px;
-        text-align: center;
-        font-size: 11px;
-        letter-spacing: 1px;
-        opacity: 0.7;
-      }
-
-      /* Crosshair follows the mouse (aim point). */
-      #crosshair {
-        position: absolute;
-        width: 26px;
-        height: 26px;
-        margin: -13px 0 0 -13px;
-        border: 2px solid rgba(142, 197, 255, 0.9);
-        border-radius: 50%;
-        transform: translate(-100px, -100px);
-      }
-      #crosshair::before, #crosshair::after {
-        content: "";
-        position: absolute;
-        background: rgba(142, 197, 255, 0.9);
-      }
-      #crosshair::before { left: 11px; top: -6px; width: 2px; height: 6px; }
-      #crosshair::after { left: -6px; top: 11px; width: 6px; height: 2px; }
-
-      /* Player health bar — top centre. */
-      #healthWrap {
-        position: absolute;
-        top: 16px;
-        left: 50%;
-        width: 260px;
-        margin-left: -130px;
-        text-align: center;
-      }
-      #healthLabel { font-size: 11px; letter-spacing: 2px; opacity: 0.8; margin-bottom: 4px; }
-      #health {
-        height: 14px;
-        background: rgba(10, 16, 24, 0.6);
-        border: 1px solid rgba(120, 180, 255, 0.3);
-        border-radius: 7px;
-        overflow: hidden;
-      }
-      #healthFill {
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, #56d364, #8ec5ff);
-        transition: width 0.15s linear, background-color 0.2s;
-      }
-
-      /* Game-over overlay. */
-      #gameover {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        background: rgba(6, 9, 14, 0.72);
-        text-align: center;
-      }
-      #gameover[hidden] { display: none; }
-      #gameover .title { font-size: 46px; font-weight: 700; color: #ff6b5b; letter-spacing: 4px; }
-      #gameover .sub { font-size: 16px; opacity: 0.85; }
     </style>
   </head>
   <body>
-    <div id="hud">
-      <div id="help">
-        <div><b>TANKZ</b> — proof of concept</div>
-        <div><kbd>W</kbd><kbd>S</kbd> / <kbd>↑</kbd><kbd>↓</kbd> drive &nbsp; <kbd>A</kbd><kbd>D</kbd> / <kbd>←</kbd><kbd>→</kbd> steer hull</div>
-        <div><kbd>Z</kbd><kbd>X</kbd> rotate turret &nbsp; <kbd>Space</kbd> fire</div>
-        <div><kbd>R</kbd> restart battle</div>
-      </div>
-      <div id="stats">
-        <div class="big"><span id="score">0</span> kills</div>
-        <div>shots: <span id="shots">0</span></div>
-      </div>
-      <div id="healthWrap">
-        <div id="healthLabel">ARMOR</div>
-        <div id="health"><div id="healthFill"></div></div>
-      </div>
-      <div id="crosshair"></div>
-      <div id="reloadLabel">RELOAD</div>
-      <div id="reload"><div id="reloadFill"></div></div>
-      <div id="gameover" hidden>
-        <div class="title">DESTROYED</div>
-        <div class="sub">press <b>R</b> to redeploy</div>
-      </div>
+    <div id="help">
+      <div><b>TANKZ</b> — driving demo</div>
+      <div>W/S drive · A/D steer · mouse aims · click fires</div>
     </div>
-
-    <!-- Vite resolves this bare import from node_modules. -->
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

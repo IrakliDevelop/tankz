@@ -7,3 +7,7 @@ dist/
 # These are process artifacts; our durable design docs live in docs/*.md.
 docs/superpowers/
 .superpowers/
+
+# Agent tooling artifacts (vendored skills cache) — keep local, not in git
+.agents/
+skills-lock.json

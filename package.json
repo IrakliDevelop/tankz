@@ -1,7 +1,7 @@
 {
   "name": "tankz",
   "version": "1.0.0",
-  "description": "A tiny offline browser tank game (Tanki-style) built with Three.js",
+  "description": "A tiny offline browser tank roguelike (top-down 2D) built with PixiJS",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,21 +11,15 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },
-  "keywords": [
-    "game",
-    "threejs",
-    "tank",
-    "webgl"
-  ],
+  "keywords": ["game", "pixijs", "tank", "roguelike", "webgl"],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/three": "^0.160.0",
     "typescript": "^6.0.3",
     "vite": "^5.4.0",
     "vitest": "^4.1.9"
   },
   "dependencies": {
-    "three": "^0.160.0"
+    "pixi.js": "^8.19.0"
   }
 }
