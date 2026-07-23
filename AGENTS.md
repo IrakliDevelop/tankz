@@ -76,6 +76,29 @@ Before claiming a change is complete:
 - **PixiJS v8.** Consult the `pixijs-*` skills in `.agents/skills/` before
   non-trivial rendering work; v8 differs substantially from v7.
 
+## Tooling
+
+- **Lint:** `npm run lint` (fix: `npm run lint:fix`). ESLint **enforces the
+  architecture invariants** for `src/core/**` — it will error on importing
+  `pixi.js`, touching `window`/`document`, or using `Math.random` / `Date.now` /
+  `performance.now` in the simulation. Treat a lint failure there as a design
+  violation, not a nuisance.
+- **Format:** `npm run format` (check: `npm run format:check`). Prettier owns
+  formatting; don't hand-format or argue style.
+- **Coverage:** `npm run coverage`.
+- **Git hooks (Husky):** `pre-commit` runs lint-staged (eslint + prettier) then
+  `typecheck` + `test`; `commit-msg` runs commitlint. Broken or badly-messaged
+  commits are rejected before they land. Don't bypass with `--no-verify`.
+
+## Testing best practices
+
+- **Test the pure core, not the pixels.** Unit-test `src/core/` logic; verify
+  `src/view/` visually via the **verify** skill.
+- **Keep tests deterministic.** No randomness or wall-clock; feed fixed inputs
+  and assert exact/`toBeCloseTo` outputs (see `physics.test.ts`).
+- **Test behavior + edges** (spawn, expiry, collision, death, wrap-around), not
+  private implementation detail — so tests survive refactors.
+
 ## Git conventions
 
 See `.cursor/rules/git-conventions.mdc`. In short: Conventional Commits

@@ -6,7 +6,9 @@ alwaysApply: true
 # Git conventions
 
 **Only commit when the user asks.** Don't `git push` or force-push unless
-explicitly told to.
+explicitly told to. A Husky `commit-msg` hook runs **commitlint**, so
+non-conforming messages are rejected — and the `pre-commit` hook runs
+lint/typecheck/test. Never bypass hooks with `--no-verify`.
 
 ## Commit messages — Conventional Commits
 
