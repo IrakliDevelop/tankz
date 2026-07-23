@@ -1,0 +1,27 @@
+---
+description: TypeScript and Vitest conventions for tankz
+globs: **/*.ts
+alwaysApply: false
+---
+
+# TypeScript & tests
+
+- **Strict TS.** No `any`. Prefer precise types and `readonly` where it clarifies
+  intent. Let inference work internally; annotate exported/public boundaries.
+- **`npm run typecheck` is the gate** — it must pass with zero errors before a
+  change is done.
+- **Colocate tests** as `name.test.ts` next to the module (Vitest). Run with
+  `npm test`.
+- **Test the pure core.** Anything in `src/core/` (movement, collision, spawn,
+  expiry, damage) should have unit tests covering behavior + edge cases — not
+  implementation detail. `src/view/` (Pixi) is verified visually instead.
+- **Comments explain _why_, not _what_.** No narration; document intent,
+  trade-offs, and non-obvious constraints.
+
+```ts
+// ❌ magic number, narration
+tank.speed += 520 * dt; // add to speed
+
+// ✅ tunable from config, intent-level comment (only when non-obvious)
+tank.speed += TANK.accel * dt;
+```

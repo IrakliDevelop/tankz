@@ -1,0 +1,26 @@
+---
+description: Core architecture invariants for the tankz roguelite (sim/render split, determinism, fixed timestep)
+alwaysApply: true
+---
+
+# tankz — architecture invariants
+
+Full context in `AGENTS.md`. These are load-bearing; breaking one is a bug even
+if the game still runs.
+
+- **Sim/render split.** Game logic in `src/core/` is **pure** — no `pixi.js`,
+  DOM, `window`/`document`, or canvas. Rendering in `src/view/` only **reads**
+  state. `src/main.ts` wires them and owns the loop.
+- **Deterministic sim.** Same state + same `InputIntent` ⇒ same result. No
+  `Math.random()`, `Date.now()`, or `performance.now()` in `src/core/`. Need
+  randomness? Thread a **seeded PRNG through `SimState`**.
+- **Fixed timestep.** Sim steps by exact `SIM_DT` (1/60 s) via the accumulator
+  in `main.ts`; rendering interpolates by `alpha`. Never step game state off a
+  variable frame delta.
+- **Tunables in `config.ts`.** No magic numbers in logic.
+- **Entities as id'd collections.** Model the world as arrays of entities with
+  `EntityId` (`ids.ts`), not singletons — even when there's "only one".
+- **Input is intent.** The sim only sees `InputIntent` (`throttle`, `steer`,
+  `aimPoint`, `fire`); raw input handling stays in the view.
+
+When adding gameplay, use the `add-sim-feature` skill.
