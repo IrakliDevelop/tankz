@@ -31,18 +31,21 @@ none, cut it.
 Three nested timescales, each satisfying on its own.
 
 ### Second-to-second — combat
+
 Position your hull, aim the turret, manage momentum and weapon cooldowns, dodge,
 and use cover. This is where the driving skill lives and where the moment-to-moment
 fun has to be proven first.
 
 ### Per-run — a session (~20–40 min)
+
 Descend floor by floor through connected procedural rooms. Clear a room → doors
 open → choose your path. Pick up weapons/parts/mods, spend scavenged **scrap** at
 wrecks/traders, fight a boss to end each floor. Death ends the run.
 
 ### Meta — across runs
+
 Banked salvage unlocks new **tank chassis (classes)**, weapons, and starting
-perks in a persistent garage/hideout. Your *options* deepen even when a run fails,
+perks in a persistent garage/hideout. Your _options_ deepen even when a run fails,
 so failure still moves you forward.
 
 ## 4. The Tank — Identity & Controls
@@ -77,7 +80,7 @@ The second pillar. Runs diverge because your machine does.
 ## 6. World & Run Structure
 
 - **Biomes / floors** with escalating threat and distinct flavor, e.g.
-  *The Sprawl* (ruined city), *The Dust Flats*, *The Reactor*. Each floor is a
+  _The Sprawl_ (ruined city), _The Dust Flats_, _The Reactor_. Each floor is a
   set of procedurally-connected rooms.
 - **Room types:** combat, elite, treasure/loot, trader/scrap-wreck,
   event/challenge, boss.
@@ -92,9 +95,56 @@ layouts (which `arena.ts` already parses), then procedurally pick and connect
 them per floor. This gives designed-feeling, readable rooms cheaply, plays to the
 existing tile system, and makes adding content easy — the Gungeon/Isaac approach.
 
-*(Considered and rejected for now: fully procedural tile generation via BSP/
+_(Considered and rejected for now: fully procedural tile generation via BSP/
 cellular automata. More "infinite," but much harder to make consistently fun and
-readable. Revisit only if handcrafted templates become a content bottleneck.)*
+readable. Revisit only if handcrafted templates become a content bottleneck.)_
+
+### Combat-space progression — the MVP approach (decided)
+
+The six-wave MVP expands through **three authored arena tiers**, not by stretching
+one room or generating arbitrary dimensions:
+
+- Waves 1–2 use a compact salvage yard that forces early contact and teaches
+  driving around cover.
+- Waves 3–4 move to a medium freight depot with longer lanes and more flanking
+  space for brutes and larger groups.
+- Waves 5–6 use a large foundry arena with separated cover islands and enough
+  room for the boss spread attack.
+
+Arena changes happen only between waves. The player's armor, salvage, upgrades,
+and active powerup timers carry forward; the tank is placed at the new room's
+authored player spawn with its movement stopped. Shells, effects, and uncollected
+room pickups are cleared so no encounter state leaks into the next space. Each
+template owns its player and enemy spawn points, keeping spawn safety coupled to
+the layout that was designed for it.
+
+This tiered approach makes the run feel physically larger while preserving
+readable, intentionally placed cover. Later procedural floors should select and
+connect templates from the same format instead of replacing it.
+
+### Physical contact and combat pickups — the MVP approach (decided)
+
+Tanks have solid hulls. Player/enemy and enemy/enemy contacts block overlap and
+allow heavier chassis to displace lighter ones, with very little bounce. This is
+an arcade contact model: it should communicate mass, prevent phasing, and create
+positioning pressure without turning collisions into a separate damage system.
+Ramming damage is deliberately deferred until the contact behavior itself feels
+fair.
+
+Destroyed enemies can drop one of three short-loop powerups:
+
+- **Repair kit** — restores armor and remains on the ground if armor is already
+  full.
+- **Shield cell** — adds temporary hit points that absorb incoming damage before
+  armor, up to a fixed cap.
+- **Overdrive canister** — grants a timed mobility and fire-rate boost; collecting
+  another refreshes the timer rather than stacking the multiplier.
+
+Drop selection is deterministic from the run seed. Shield and overdrive enter the
+pool after the opening waves, while repair is biased upward when the player is
+badly damaged. This supplies more pickups as enemy counts grow without guaranteeing
+one from every kill or flooding the arena. Permanent build choices remain the
+between-wave reward; combat pickups are immediate survival and tempo decisions.
 
 ## 7. Setting & Tone
 
@@ -109,7 +159,7 @@ no art pipeline. Layer in sprite art later without changing systems.
 
 ## 8. Long-term / Stretch
 
-- **Co-op** (2-player shared run) kept *possible* by the existing sim/render
+- **Co-op** (2-player shared run) kept _possible_ by the existing sim/render
   split, but not built now. See `MULTIPLAYER.md` for the netcode groundwork this
   reuses.
 - **Daily seeds** for shared-challenge replay.
@@ -119,7 +169,7 @@ no art pipeline. Layer in sprite art later without changing systems.
 ## 9. Development Phasing
 
 Ordered so each phase produces something playable and de-risks the next. Earlier
-phases prove *feel*; later phases add *depth*.
+phases prove _feel_; later phases add _depth_.
 
 1. **Combat vertical slice.** Enemies + damage/HP + death + one weapon + one
    clearable room. Proves the core second-to-second feel.
@@ -133,7 +183,7 @@ phases prove *feel*; later phases add *depth*.
 
 ## 10. Fit With the Current Architecture
 
-The vision was chosen to build *on* the existing foundation, not fight it:
+The vision was chosen to build _on_ the existing foundation, not fight it:
 
 - **Sim/render split** — enemies, pickups, rooms, and builds all live in the pure
   `SimState`; rendering stays a read-only view. Keeps logic testable and keeps

@@ -48,12 +48,12 @@ netcode possible (see `docs/MULTIPLAYER.md`). Preserve them.
 
 ## Layout
 
-| Path | Role |
-|------|------|
-| `src/core/` | Pure simulation: `sim.ts`, `tank.ts`, `projectile.ts`, `physics.ts`, `arena.ts`, `config.ts`, `input.ts`, `ids.ts`, `types.ts` + colocated `*.test.ts` |
-| `src/view/` | Rendering only: `renderer.ts`, `camera.ts`, `visuals.ts` |
-| `src/main.ts` | Bootstrap, input capture, fixed-timestep loop |
-| `docs/` | Design + architecture docs |
+| Path          | Role                                                                                                                                                   |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/core/`   | Pure simulation: `sim.ts`, `tank.ts`, `projectile.ts`, `physics.ts`, `arena.ts`, `config.ts`, `input.ts`, `ids.ts`, `types.ts` + colocated `*.test.ts` |
+| `src/view/`   | Rendering only: `renderer.ts`, `camera.ts`, `visuals.ts`                                                                                               |
+| `src/main.ts` | Bootstrap, input capture, fixed-timestep loop                                                                                                          |
+| `docs/`       | Design + architecture docs                                                                                                                             |
 
 ## Definition of done
 

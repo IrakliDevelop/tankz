@@ -38,7 +38,8 @@ describe('resolveCircleAabb', () => {
   it('pushes out diagonally at a corner', () => {
     // Overlapping the top-right corner from outside.
     const pushed = resolveCircleAabb({ x: 38, y: -6 }, 10, box)!;
-    const dx = pushed.x - 32, dy = pushed.y - 0;
+    const dx = pushed.x - 32,
+      dy = pushed.y - 0;
     expect(Math.hypot(dx, dy)).toBeCloseTo(10); // sits exactly on the corner at distance r
     expect(dx).toBeGreaterThan(0);
     expect(dy).toBeLessThan(0);

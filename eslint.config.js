@@ -29,8 +29,7 @@ export default tseslint.config(
           patterns: [
             {
               group: ['pixi.js', 'pixi.js/*'],
-              message:
-                'src/core must stay render-free — put Pixi/rendering in src/view.',
+              message: 'src/core must stay render-free — put Pixi/rendering in src/view.',
             },
           ],
         },
@@ -41,8 +40,7 @@ export default tseslint.config(
         { name: 'document', message: 'src/core must be DOM-free.' },
         {
           name: 'performance',
-          message:
-            'The sim must be deterministic — no wall-clock (performance.now).',
+          message: 'The sim must be deterministic — no wall-clock (performance.now).',
         },
       ],
       'no-restricted-properties': [
@@ -56,14 +54,12 @@ export default tseslint.config(
         {
           object: 'Date',
           property: 'now',
-          message:
-            'The sim must be deterministic — no wall-clock. Drive time from SIM_DT.',
+          message: 'The sim must be deterministic — no wall-clock. Drive time from SIM_DT.',
         },
         {
           object: 'performance',
           property: 'now',
-          message:
-            'The sim must be deterministic — no wall-clock. Drive time from SIM_DT.',
+          message: 'The sim must be deterministic — no wall-clock. Drive time from SIM_DT.',
         },
       ],
     },

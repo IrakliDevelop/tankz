@@ -1,11 +1,10 @@
-let counter = 0;
-
-/** A fresh, process-unique entity id. */
-export function nextId(): number {
-  return ++counter;
+export interface IdSource {
+  nextEntityId: number;
 }
 
-/** Reset the counter — used by tests. */
-export function resetIds(): void {
-  counter = 0;
+/** Allocate from simulation-owned state so replays never depend on module globals. */
+export function takeId(source: IdSource): number {
+  const id = source.nextEntityId;
+  source.nextEntityId += 1;
+  return id;
 }

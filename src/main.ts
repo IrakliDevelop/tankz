@@ -3,70 +3,124 @@ import { createSim, stepSim } from './core/sim';
 import { SIM_DT } from './core/config';
 import type { InputIntent } from './core/input';
 import { Camera } from './view/camera';
+import { Hud } from './view/hud';
 import { Renderer } from './view/renderer';
 
 /**
- * The classic fixed-timestep loop:
- *   - the sim advances in exact SIM_DT increments (deterministic),
- *   - rendering happens every animation frame, interpolating between the
- *     last two sim states by the accumulator remainder (smooth at any Hz).
+ * Fixed-step simulation with an interpolated Pixi view. Browser input is
+ * translated into serializable intent at the boundary and never leaks inward.
  */
 async function start(): Promise<void> {
   const app = new Application();
-  await app.init({ resizeTo: window, background: 0x0b0e13, antialias: true });
+  await app.init({
+    resizeTo: window,
+    background: 0x0b0d0b,
+    antialias: true,
+    autoDensity: true,
+    resolution: Math.min(window.devicePixelRatio, 2),
+  });
+  app.canvas.setAttribute(
+    'aria-label',
+    'Tankz game arena. Use W and S to drive, A and D to steer, mouse to aim, and click to fire.',
+  );
   document.body.appendChild(app.canvas);
 
-  // ---- Raw input state (view side; the sim only ever sees InputIntent) ----
-  const keys = new Set<string>();
-  window.addEventListener('keydown', (e) => keys.add(e.code));
-  window.addEventListener('keyup', (e) => keys.delete(e.code));
-  const mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2, down: false };
-  window.addEventListener('pointermove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
-  window.addEventListener('pointerdown', (e) => { if (e.button === 0) mouse.down = true; });
-  window.addEventListener('pointerup', (e) => { if (e.button === 0) mouse.down = false; });
-  window.addEventListener('contextmenu', (e) => e.preventDefault());
-  window.addEventListener('blur', () => { keys.clear(); mouse.down = false; }); // don't get stuck driving/firing on alt-tab
-
-  // ---- World ----
-  const state = createSim();
+  const state = createSim(Date.now() >>> 0);
+  const hud = new Hud();
   const camera = new Camera();
   app.stage.addChild(camera.world);
   const renderer = new Renderer(camera.world, state);
-  camera.update(state.tank.pos, app.screen.width, app.screen.height, SIM_DT); // initial snap
+
+  const keys = new Set<string>();
+  const mouse = {
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
+    down: false,
+  };
+  let queuedUpgrade: number | null = null;
+  let queuedRestart = false;
+
+  window.addEventListener('keydown', (event) => {
+    keys.add(event.code);
+    if (!event.repeat && event.code.startsWith('Digit')) {
+      const index = Number(event.code.slice(5)) - 1;
+      if (index >= 0 && index < 3) queuedUpgrade = index;
+    }
+    if (!event.repeat && (event.code === 'KeyR' || event.code === 'Enter')) {
+      queuedRestart = true;
+    }
+  });
+  window.addEventListener('keyup', (event) => keys.delete(event.code));
+  window.addEventListener('pointermove', (event) => {
+    mouse.x = event.clientX;
+    mouse.y = event.clientY;
+    hud.setPointer(mouse.x, mouse.y);
+  });
+  window.addEventListener('pointerdown', (event) => {
+    if (event.button === 0) mouse.down = true;
+  });
+  window.addEventListener('pointerup', (event) => {
+    if (event.button === 0) mouse.down = false;
+  });
+  window.addEventListener('contextmenu', (event) => event.preventDefault());
+  window.addEventListener('blur', () => {
+    keys.clear();
+    mouse.down = false;
+  });
+  hud.choiceButtons.forEach((button, index) => {
+    button.addEventListener('click', () => {
+      queuedUpgrade = index;
+    });
+  });
+
+  camera.update(state.players[0].body.pos, app.screen.width, app.screen.height, SIM_DT);
   renderer.render(state, 0);
+  hud.setPointer(mouse.x, mouse.y);
+  hud.update(state);
 
   function readIntent(): InputIntent {
-    const throttle = (keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 1 : 0);
-    const steer = (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0);
-    return {
-      throttle,
-      steer,
+    const intent: InputIntent = {
+      throttle: (keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 1 : 0),
+      steer: (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0),
       aimPoint: camera.toWorld(mouse.x, mouse.y),
       fire: mouse.down,
+      upgradeChoice: queuedUpgrade,
+      restart: queuedRestart,
     };
+    queuedUpgrade = null;
+    queuedRestart = false;
+    return intent;
   }
 
-  // ---- Fixed-timestep accumulator, clamped so a suspended tab can't spiral ----
-  const MAX_STEPS_PER_FRAME = 5;
+  const maxStepsPerFrame = 5;
   let accumulator = 0;
   app.ticker.add((ticker) => {
-    accumulator = Math.min(accumulator + ticker.deltaMS / 1000, MAX_STEPS_PER_FRAME * SIM_DT);
+    accumulator = Math.min(accumulator + ticker.deltaMS / 1000, maxStepsPerFrame * SIM_DT);
     while (accumulator >= SIM_DT) {
       renderer.beginStep(state);
       stepSim(state, readIntent());
       accumulator -= SIM_DT;
     }
+
     const alpha = accumulator / SIM_DT;
-    camera.update(renderer.tankRenderPos(state, alpha), app.screen.width, app.screen.height, ticker.deltaMS / 1000);
+    camera.update(
+      renderer.playerRenderPos(state, alpha),
+      app.screen.width,
+      app.screen.height,
+      ticker.deltaMS / 1000,
+    );
     renderer.render(state, alpha);
+    hud.update(state);
   });
 }
 
-start().catch((err: unknown) => {
-  // A visible failure beats a silent black page.
+start().catch((error: unknown) => {
   const pre = document.createElement('pre');
-  pre.style.cssText = 'color:#ff6b5b;padding:24px;font:14px ui-monospace,monospace;white-space:pre-wrap';
-  pre.textContent = `Tankz failed to start:\n\n${err instanceof Error ? err.stack ?? err.message : String(err)}`;
+  pre.style.cssText =
+    'color:#ff6b5b;padding:24px;font:14px ui-monospace,monospace;white-space:pre-wrap';
+  pre.textContent =
+    'Tankz failed to start:\n\n' +
+    (error instanceof Error ? (error.stack ?? error.message) : String(error));
   document.body.appendChild(pre);
-  console.error(err);
+  console.error(error);
 });

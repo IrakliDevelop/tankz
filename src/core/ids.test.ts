@@ -1,18 +1,18 @@
-import { describe, it, expect } from 'vitest';
-import { nextId, resetIds } from './ids';
+import { describe, expect, it } from 'vitest';
+import { takeId, type IdSource } from './ids';
 
-describe('ids', () => {
+describe('takeId', () => {
   it('returns strictly increasing unique ids', () => {
-    resetIds();
-    const a = nextId(), b = nextId(), c = nextId();
-    expect(a).toBe(1);
-    expect(b).toBe(2);
-    expect(c).toBe(3);
-    expect(new Set([a, b, c]).size).toBe(3);
+    const source: IdSource = { nextEntityId: 1 };
+    const ids = [takeId(source), takeId(source), takeId(source)];
+    expect(ids).toEqual([1, 2, 3]);
+    expect(new Set(ids).size).toBe(3);
+    expect(source.nextEntityId).toBe(4);
   });
 
-  it('resetIds() restarts the counter', () => {
-    resetIds();
-    expect(nextId()).toBe(1);
+  it('is deterministic and isolated per simulation state', () => {
+    const a: IdSource = { nextEntityId: 7 };
+    const b: IdSource = { nextEntityId: 7 };
+    expect([takeId(a), takeId(a)]).toEqual([takeId(b), takeId(b)]);
   });
 });

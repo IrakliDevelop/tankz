@@ -5,11 +5,7 @@ import { parseArena } from './arena';
 import { TANK, TILE_SIZE } from './config';
 
 // 6×3 tiles: a corridor of open floor from (1,1) to (4,1), walled all around.
-const corridor = parseArena([
-  '######',
-  '#....#',
-  '######',
-]);
+const corridor = parseArena(['######', '#....#', '######']);
 const midY = TILE_SIZE * 1.5; // vertical centre of the corridor
 
 const DT = 1 / 60;
