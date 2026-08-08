@@ -258,6 +258,36 @@
         color: rgba(243, 184, 91, 0.9);
       }
 
+      #audio-toggle {
+        position: fixed;
+        bottom: 18px;
+        left: 18px;
+        z-index: 4;
+        padding: 9px 12px;
+        border: 1px solid rgba(240, 231, 210, 0.18);
+        background: rgba(18, 20, 17, 0.86);
+        color: var(--muted);
+        font:
+          750 10px/1 ui-monospace,
+          Consolas,
+          monospace;
+        letter-spacing: 0.1em;
+        cursor: pointer;
+        backdrop-filter: blur(5px);
+      }
+
+      #audio-toggle.active {
+        border-color: rgba(243, 184, 91, 0.42);
+        color: var(--amber);
+      }
+
+      #audio-toggle:hover,
+      #audio-toggle:focus-visible {
+        outline: none;
+        border-color: var(--amber);
+        color: var(--ink);
+      }
+
       #boss-panel {
         position: fixed;
         top: 26px;
@@ -504,6 +534,8 @@
       <div><b>W / S</b> DRIVE &nbsp; <b>A / D</b> STEER</div>
       <div><b>MOUSE</b> AIM &nbsp; <b>LMB</b> FIRE</div>
     </div>
+
+    <button id="audio-toggle" class="active" type="button" aria-pressed="true">SOUND ON / M</button>
 
     <div id="crosshair" aria-hidden="true"></div>
 

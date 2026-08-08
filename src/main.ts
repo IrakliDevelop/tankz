@@ -2,6 +2,7 @@ import { Application } from 'pixi.js';
 import { createSim, stepSim } from './core/sim';
 import { SIM_DT } from './core/config';
 import type { InputIntent } from './core/input';
+import { AudioManager } from './view/audio';
 import { Camera } from './view/camera';
 import { Hud } from './view/hud';
 import { Renderer } from './view/renderer';
@@ -21,11 +22,12 @@ async function start(): Promise<void> {
   });
   app.canvas.setAttribute(
     'aria-label',
-    'Tankz game arena. Use W and S to drive, A and D to steer, mouse to aim, and click to fire.',
+    'Tankz game arena. Use W and S to drive, A and D to steer, mouse to aim, click to fire, and M to toggle sound.',
   );
   document.body.appendChild(app.canvas);
 
   const state = createSim(Date.now() >>> 0);
+  const audio = new AudioManager(state);
   const hud = new Hud();
   const camera = new Camera();
   app.stage.addChild(camera.world);
@@ -41,6 +43,12 @@ async function start(): Promise<void> {
   let queuedRestart = false;
 
   window.addEventListener('keydown', (event) => {
+    if (event.code === 'KeyM') {
+      if (!event.repeat) audio.toggle();
+      event.preventDefault();
+      return;
+    }
+    void audio.unlock();
     keys.add(event.code);
     if (!event.repeat && event.code.startsWith('Digit')) {
       const index = Number(event.code.slice(5)) - 1;
@@ -57,7 +65,9 @@ async function start(): Promise<void> {
     hud.setPointer(mouse.x, mouse.y);
   });
   window.addEventListener('pointerdown', (event) => {
-    if (event.button === 0) mouse.down = true;
+    if (event.target !== app.canvas) return;
+    void audio.unlock();
+    if (event.button === 0 && event.target === app.canvas) mouse.down = true;
   });
   window.addEventListener('pointerup', (event) => {
     if (event.button === 0) mouse.down = false;
@@ -109,6 +119,7 @@ async function start(): Promise<void> {
       app.screen.height,
       ticker.deltaMS / 1000,
     );
+    audio.update(state);
     renderer.render(state, alpha);
     hud.update(state);
   });
