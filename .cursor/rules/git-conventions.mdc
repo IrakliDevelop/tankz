@@ -1,0 +1,36 @@
+---
+description: Git commit and hygiene conventions for tankz
+alwaysApply: true
+---
+
+# Git conventions
+
+**Only commit when the user asks.** Don't `git push` or force-push unless
+explicitly told to. A Husky `commit-msg` hook runs **commitlint**, so
+non-conforming messages are rejected — and the `pre-commit` hook runs
+lint/typecheck/test. Never bypass hooks with `--no-verify`.
+
+## Commit messages — Conventional Commits
+
+Format: `type(scope): summary`
+
+- **types:** `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `chore`, `style`
+- **scope** (optional): the area touched — e.g. `core`, `view`, `sim`, `tank`,
+  `projectile`, `arena`, `physics`, `config`, `main`, `docs`, `build`
+- **summary:** imperative mood, lowercase, no trailing period, ≤ 72 chars
+- **body** (optional, wrapped ~72): explain the _why_, not the _what_
+
+```
+feat(sim): add enemy tanks with pure AI step and HP
+
+Enemies live as an id'd collection on SimState and are stepped in
+stepSim after the player. Keeps the sim deterministic and testable.
+```
+
+## Hygiene
+
+- One logical change per commit; keep them small and focused.
+- Never commit secrets, `.env`, or generated output (`node_modules/`, `dist/`).
+  Ensure `.gitignore` covers them.
+- Run `npm run typecheck && npm test` before committing code.
+- Prefer new commits over `--amend`; only amend un-pushed commits you just made.

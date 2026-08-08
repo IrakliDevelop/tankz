@@ -9,7 +9,7 @@ paint us into a corner.** Inspiration is Tanki Online; the desired feel is
 - **Two tanks visibly moving on each other's screens:** ~1–2 weeks. A small
   relay/room server + basic state sync gets you here.
 - **Feels like Tanki (smooth, fair, hit detection that feels right under lag):**
-  months. The transport is easy; good *netcode* is the mountain — prediction,
+  months. The transport is easy; good _netcode_ is the mountain — prediction,
   reconciliation, interpolation, and lag-compensated shooting.
 
 Multiplayer is the one feature you can't cleanly bolt on later **unless the
@@ -23,17 +23,19 @@ A browser tab **cannot accept inbound connections** — it can't literally be a
 server others dial into. So "host a room" means one of:
 
 ### Model A — Small room server (recommended)
+
 A lightweight Node server (or a framework like **Colyseus**) owns the rooms and
 the authoritative game state. Clients send inputs; server simulates and
 broadcasts snapshots. To the user it still feels like "host a room, join by
 code" — the server just creates the room.
 
 - **Pros:** authoritative (cheat-resistant), consistent, no host-advantage, no
-  host-migration problem, scales past 2 players, simplest *good* netcode.
+  host-migration problem, scales past 2 players, simplest _good_ netcode.
 - **Cons:** you run a server (cheap: Fly.io / Railway / a $5 VPS). Simulation
   must be headless (no Three.js/DOM) — hence the sim/render split.
 
 ### Model B — Browser "listen-server" via WebRTC
+
 One player's browser is the authority; peers connect via **WebRTC DataChannels**.
 Still needs a small **signaling** server to introduce peers, plus **STUN/TURN**
 for NAT traversal.
@@ -54,7 +56,7 @@ a hard requirement.
 - **Authority** — one side owns the truth per entity (server/host). Clients
   propose; authority disposes.
 - **Fixed-tick simulation** — sim advances in fixed steps (e.g. 30–60 Hz);
-  network broadcasts less often (e.g. 15–20 Hz). *(Already a roadmap item.)*
+  network broadcasts less often (e.g. 15–20 Hz). _(Already a roadmap item.)_
 - **Input messages** — clients send compact input state (keys down, turret
   angle), not positions. Small and cheat-resistant.
 - **Client-side prediction** — your own tank responds instantly to your input,
